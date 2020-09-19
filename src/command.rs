@@ -1,45 +1,59 @@
-use byteorder::{BigEndian, WriteBytesExt};
+use std::fmt;
+use bytebuffer::ByteBuffer;
 
 #[derive(Debug)]
 pub struct Command {
     pub msg_type: u16,
-    pub len: u16,
     pub data: Vec<u8>,
 }
 
 impl Command {
 
+    pub fn new(msg_type: u16, data: Vec<u8>) -> Result<Command, &'static str> {
+        if data.len() > 255 {
+            return Err("Data length must be < 255")
+        }
+        Ok( Command { msg_type: msg_type, data: data } )
+    }
+
     pub fn from_raw(msg: & Vec<u8>) -> Result<Command, &'static str> {
 
-        if msg.len() < 5 {
-            return Err("Raw message length must be greater than 5")
+        if msg.len() < 7 {
+            return Err("Raw message length must be greater than 7")
+        }
+        if msg[0] != 1 || msg[msg.len() - 1] != 3 {
+            return Err("Incomplete raw message")
         }
 
-        debug!("raw : {:?}", msg);
-        let msg = decode(&msg);
-        debug!("transcoded : {:?}", msg);
+        debug!("raw: {:?}", msg);
+        let msg = decode(&msg[1..msg.len()-1]);
+        debug!("decoded: {:?}", msg);
 
-        let msg_type = (msg[0] as u16) << 8 | (msg[1] as u16) & 0xff;
-        let len = (msg[2] as u16) << 8 | (msg[3] as u16) & 0xff;
-        let checksum = msg[4];
+        let mut buf = ByteBuffer::from_bytes(&msg);
+
+        let msg_type = buf.read_u16().unwrap();
+        debug!("msg_type: {:#X}", msg_type);
+        let len = buf.read_u16().unwrap();
+        debug!("len: {}", len);
+        let checksum = buf.read_u8().unwrap();
+        debug!("checksum: {}", checksum);
 
         if msg.len() - 5 != len.into() {
+            debug!("msg.len() {} len {}", msg.len(), len);
             return Err("Wrong data length")
         }
 
-        let mut data = Vec::new();
-        for byte in &msg[5..] {
-            data.push(byte.to_owned());
-        }
+        let data = buf.read_bytes(len.into()).unwrap(); 
+        debug!("data: {:?}", data);
 
         let cmd = Command {
             msg_type,
-            len,
             data,
         };
 
         if cmd.get_checksum() != checksum {
-            return Err("Invalid checksum")
+            warn!("Invalid checksum")
+            //return Err("Invalid checksum")
         }
 
         Ok(cmd)
@@ -50,8 +64,8 @@ impl Command {
 
         checksum ^= (self.msg_type >> 8) as u8;
         checksum ^= (self.msg_type & 0xff) as u8;
-        checksum ^= (self.len >> 8) as u8;
-        checksum ^= (self.len & 0xff) as u8;
+        checksum ^= (self.data.len() >> 8) as u8;
+        checksum ^= (self.data.len() & 0xff) as u8;
 
         for byte in &self.data {
             checksum ^= byte;
@@ -60,45 +74,27 @@ impl Command {
         checksum
     }
 
-    pub fn build(&self) -> Vec<u8> {
-        let mut cmd = Vec::new();
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut buf = ByteBuffer::new();
+        buf.write_u16(self.msg_type);
+        buf.write_u16(self.data.len() as u16);
+        buf.write_u8(self.get_checksum());
+        buf.write_bytes(&self.data);
 
-        /* Do not transcode checksum */
-        //let mut hdr = vec![];
-        //hdr.write_u16::<BigEndian>(self.msg_type).unwrap();
-        //hdr.write_u16::<BigEndian>(self.len).unwrap();
+        debug!("msg {:?}", buf.to_bytes());
+        let mut msg = transcode(&buf.to_bytes());
+        debug!("transcoded {:?}", msg);
 
-        //let transcoded_hdr = transcode(&hdr);
-
-        //let checksum = self.get_checksum();
-
-        //let transcoded_data = transcode(&self.data);
-
-        //cmd.push(0x01u8);
-        //for byte in transcoded_hdr {
-        //    cmd.push(byte.to_owned());
-        //}
-        //cmd.push(checksum);
-        //for byte in transcoded_data {
-        //    cmd.push(byte.to_owned());
-        //}
-        //cmd.push(0x03u8);
-
-        //cmd
-
-        /* Transcode checksum */
-        cmd.write_u16::<BigEndian>(self.msg_type).unwrap();
-        cmd.write_u16::<BigEndian>(self.len).unwrap();
-        cmd.push(self.get_checksum());
-        cmd.extend_from_slice(&self.data);
-
-        let transcoded = transcode(&cmd);
-
-        let mut msg = vec![1u8];
-        msg.extend_from_slice(&transcoded);
-        msg.push(3u8);
+        msg.insert(0, 1);
+        msg.push(3);
 
         msg
+    }
+}
+
+impl fmt::Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{{message_type: {:#X}, data: {:?}}}", self.msg_type, self.data)
     }
 }
 
@@ -106,30 +102,31 @@ fn transcode(data: & Vec<u8>) -> Vec<u8> {
     let mut msg = Vec::new();
 
     for byte in data {
-        if byte > &0x10 {
-            msg.push(byte.to_owned());
+        if *byte > 0x10 {
+            msg.push(*byte);
         } else {
             msg.push(2u8);
-            msg.push(byte.to_owned()^0x10);
+            msg.push(*byte^0x10);
         }
     }
 
     msg
 }
 
-fn decode(data: & Vec<u8>) -> Vec<u8> {
+fn decode(data: &[u8]) -> Vec<u8> {
     let mut msg = Vec::new();
 
     let mut transcode = false;
 
     for byte in data {
-        if byte == &2 {
+        if *byte == 2 {
             transcode = true;
         } else {
             if transcode {
-                msg.push(byte.to_owned()^0x10);
+                msg.push(*byte^0x10);
+                transcode = false;
             } else {
-                msg.push(byte.to_owned());
+                msg.push(*byte);
             }
         }
     }

@@ -1,5 +1,6 @@
 #[macro_use] extern crate log;
 
+use std::io;
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
@@ -10,7 +11,7 @@ mod command;
 
 fn recv() {
     let ama0 = Path::new("/dev/ttyAMA0");
-    info!("Receiving from {}", ama0.display());
+    debug!("Receiving from {}", ama0.display());
 
     let mut uart = Uart::with_path(&ama0, 115_200, Parity::None, 8, 1).unwrap();
 
@@ -22,13 +23,13 @@ fn recv() {
         if uart.read(&mut buf).unwrap() > 0 {
             if buf[0] == 1 {
                 msg.clear();
-            } else if buf[0] == 3 {
+            }
+            msg.push(buf[0]);
+            if buf[0] == 3 {
                 match command::Command::from_raw(&msg) {
-                    Ok(cmd) => println!("{:?}", cmd),
+                    Ok(cmd) => println!("Received: {}", cmd),
                     Err(msg) => println!("Error: {}", msg),
                 }
-            } else {
-                msg.push(buf[0]);
             }
         }
     }
@@ -36,36 +37,77 @@ fn recv() {
 
 fn send(cmd: & Vec<u8>) {
     let ama0 = Path::new("/dev/ttyAMA0");
-    info!("Send to {}", ama0.display());
+    debug!("Send to {}", ama0.display());
 
     let mut uart = Uart::with_path(&ama0, 115_200, Parity::None, 8, 1).unwrap();
 
     uart.set_write_mode(true).unwrap();
 
     let wl = uart.write(cmd).unwrap();
-    info!("Sent {}", wl);
+    debug!("Sent {} bytes", wl);
+}
+
+fn send_cmd(msg_type: u16, data: Vec<u8>) {
+    let cmd = command::Command::new(msg_type, data).unwrap();
+    let msg = cmd.serialize();
+    println!("Send: {}", cmd);
+    send(&msg);
+}
+
+fn list_commands() {
+    println!("Commands:");
+    println!("  h: list commands");
+    println!("  version");
+    println!("  set mask: set mask to 00 00 08 00");
+    println!("  start network");
+    println!("  scan");
+    println!("  reset");
+    println!("  permit join");
+    println!("  set permit: permit join for 10s");
+    println!("  erase");
+}
+
+fn sender() {
+    list_commands();
+    loop {
+        let mut buf = String::new();
+        match io::stdin().read_line(&mut buf) {
+            Ok(_n) => {
+                let input = &buf[..buf.len()-1];
+                match input {
+                    "" => {},
+                    "h" => list_commands(),
+                    "version" => send_cmd(0x0010, vec![]),
+                    "set mask" => send_cmd(0x0021, vec![0, 0, 8, 0]),
+                    "start network" => send_cmd(0x0024, vec![]),
+                    "scan" => send_cmd(0x0025, vec![]),
+                    "reset" => send_cmd(0x0011, vec![]),
+                    "permit join" => send_cmd(0x0014, vec![]),
+                    "set permit" => send_cmd(0x0049, vec![0xff, 0xfc, 0x0a, 0x00]),
+                    "erase" => send_cmd(0x0012, vec![]),
+                    unk => {
+                        println!("Unknown command {}", unk);
+                        list_commands();
+                    },
+                }
+            }
+            Err(error) => println!("Error: {}", error),
+        }
+    }
 }
 
 fn main() {
     env_logger::init();
 
-    let cmd = command::Command {
-        msg_type: 0x10,
-        len: 0,
-        data: vec![0]
-    };
-    println!("{:?}", cmd);
-    debug!("checksum {:?}", cmd.get_checksum());
-    let msg = cmd.build();
-    debug!("command {:?}", msg);
-
     let recver = thread::spawn(move || {
         recv();
     });
-    let sender = thread::spawn(move || {
-        thread::sleep(Duration::new(1,0));
-        send(&msg);
-    });
-    sender.join().unwrap();
+
+    let cmd = command::Command::new(0x0010, vec![]).unwrap();
+    let msg = cmd.serialize();
+    debug!("msg {:?}", msg);
+
+    sender();
+
     recver.join().unwrap();
 }
