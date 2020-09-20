@@ -46,7 +46,7 @@ impl Zigate {
     pub fn new(path: &Path) -> Zigate {
         let pathbuf = path.clone().to_path_buf();
         let path = pathbuf.as_path();
-        let mut uart = Uart::with_path(path, 115_200, Parity::None, 8, 1).unwrap();
+        let uart = Uart::with_path(path, 115_200, Parity::None, 8, 1).unwrap();
         Zigate {
             pathbuf,
             cb: None,
@@ -71,9 +71,7 @@ impl Zigate {
     }
 
     pub fn send(&mut self, cmd: &command::Command) {
-
         self.uart.set_write_mode(true).unwrap();
-
         let wl = self.uart.write(&cmd.serialize()).unwrap();
         debug!("Sent {} bytes", wl);
     }

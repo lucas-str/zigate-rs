@@ -6,6 +6,7 @@ use num_traits::FromPrimitive;
 
 #[derive(FromPrimitive, Debug)]
 pub enum MessageType {
+    // Commands
     GetNetworkState = 0x0009,
     GetVersion = 0x0010,
     GetDevicesList = 0x0015,
@@ -16,6 +17,7 @@ pub enum MessageType {
 
     ActionOnOff = 0x0092,
 
+    // Responses
     Status = 0x8000,
     DevicesList = 0x8015,
     ActiveEndpoints = 0x8045,
