@@ -1,6 +1,29 @@
 use std::fmt;
 use bytebuffer::ByteBuffer;
 
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
+
+#[derive(FromPrimitive, Debug)]
+pub enum MessageType {
+    GetNetworkState = 0x0009,
+    GetVersion = 0x0010,
+    GetDevicesList = 0x0015,
+    SetChannelMask = 0x0021,
+    SetDeviceType = 0x0023,
+    ActiveEndpoint = 0x0045,
+    PermitJoinRequest = 0x0049,
+
+    ActionOnOff = 0x0092,
+
+    Status = 0x8000,
+    DevicesList = 0x8015,
+    ActiveEndpoints = 0x8045,
+
+    DeviceAnnounce = 0x004D,
+    Unknown,
+}
+
 #[derive(Debug)]
 pub struct Command {
     pub msg_type: u16,
@@ -94,7 +117,11 @@ impl Command {
 
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{message_type: {:#X}, data: {:?}}}", self.msg_type, self.data)
+        let msg_type = match FromPrimitive::from_u16(self.msg_type) {
+            Some(msg_type) => msg_type,
+            None => MessageType::Unknown,
+        };
+        write!(f, "{{{:?} ({:#X}), data: {:X?}}}", msg_type, self.msg_type, self.data)
     }
 }
 

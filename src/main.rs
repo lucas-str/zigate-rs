@@ -6,8 +6,10 @@ use std::thread;
 use std::time::Duration;
 
 use rppal::uart::{Parity, Uart};
+use hex::FromHex;
 
 mod command;
+mod responses;
 
 fn recv() {
     let ama0 = Path::new("/dev/ttyAMA0");
@@ -27,7 +29,11 @@ fn recv() {
             msg.push(buf[0]);
             if buf[0] == 3 {
                 match command::Command::from_raw(&msg) {
-                    Ok(cmd) => println!("Received: {}", cmd),
+                    Ok(cmd) => {
+                        //println!("Received: {}", cmd);
+                        let response = responses::parse_response(&cmd);
+                        println!("{}", response.to_string());
+                    },
                     Err(msg) => println!("Error: {}", msg),
                 }
             }
@@ -54,17 +60,55 @@ fn send_cmd(msg_type: u16, data: Vec<u8>) {
     send(&msg);
 }
 
+fn start() {
+    // Channel mask
+    send_cmd(0x0021, vec![0, 0, 0, 11]);
+    thread::sleep(Duration::new(1, 0));
+    // Device type
+    send_cmd(0x0023, vec![1]);
+    thread::sleep(Duration::new(1, 0));
+    // Network state
+    send_cmd(0x0009, vec![]);
+    thread::sleep(Duration::new(1, 0));
+    // Version
+    send_cmd(0x0010, vec![]);
+}
+
+fn start_inclusion() {
+    // Permit join
+    send_cmd(0x0049, vec![0xff, 0xfc, 0x1e, 0x00]);
+}
+
+fn devices_list() {
+    send_cmd(0x0015, vec![]);
+}
+
+fn get_addr() -> Result<Vec<u8>, &'static str> {
+    println!("enter device address: ");
+    let mut buf = String::new();
+    match io::stdin().read_line(&mut buf) {
+        Ok(5) => match Vec::from_hex(&buf[..buf.len()-1]) {
+            Ok(address) => return Ok(address),
+            _ => return Err("Decode error"),
+        },
+        _ => return Err("Wrong length"),
+    };
+}
+
+fn endpoint_list() {
+    match get_addr() {
+        Ok(addr) => send_cmd(0x0045, addr),
+        Err(msg) => println!(msg),
+    }
+}
+
 fn list_commands() {
     println!("Commands:");
-    println!("  h: list commands");
-    println!("  version");
-    println!("  set mask: set mask to 00 00 08 00");
-    println!("  start network");
-    println!("  scan");
-    println!("  reset");
-    println!("  permit join");
-    println!("  set permit: permit join for 10s");
-    println!("  erase");
+    println!("  help");
+    println!("  start");
+    println!("  start inclusion");
+    println!("  devices list");
+    println!("  endpoint list");
 }
 
 fn sender() {
@@ -77,14 +121,11 @@ fn sender() {
                 match input {
                     "" => {},
                     "h" => list_commands(),
-                    "version" => send_cmd(0x0010, vec![]),
-                    "set mask" => send_cmd(0x0021, vec![0, 0, 8, 0]),
-                    "start network" => send_cmd(0x0024, vec![]),
-                    "scan" => send_cmd(0x0025, vec![]),
-                    "reset" => send_cmd(0x0011, vec![]),
-                    "permit join" => send_cmd(0x0014, vec![]),
-                    "set permit" => send_cmd(0x0049, vec![0xff, 0xfc, 0x0a, 0x00]),
-                    "erase" => send_cmd(0x0012, vec![]),
+                    "help" => list_commands(),
+                    "start" => start(),
+                    "start inclusion" => start_inclusion(),
+                    "devices list" => devices_list(),
+                    "endpoint list" => endpoint_list(),
                     unk => {
                         println!("Unknown command {}", unk);
                         list_commands();
