@@ -10,36 +10,7 @@ use hex::FromHex;
 
 mod command;
 mod responses;
-
-fn recv() {
-    let ama0 = Path::new("/dev/ttyAMA0");
-    debug!("Receiving from {}", ama0.display());
-
-    let mut uart = Uart::with_path(&ama0, 115_200, Parity::None, 8, 1).unwrap();
-
-    uart.set_read_mode(1, Duration::default()).unwrap();
-
-    let mut buf = [0u8; 1];
-    let mut msg = Vec::new();
-    loop {
-        if uart.read(&mut buf).unwrap() > 0 {
-            if buf[0] == 1 {
-                msg.clear();
-            }
-            msg.push(buf[0]);
-            if buf[0] == 3 {
-                match command::Command::from_raw(&msg) {
-                    Ok(cmd) => {
-                        //println!("Received: {}", cmd);
-                        let response = responses::parse_response(&cmd);
-                        println!("{}", response.to_string());
-                    },
-                    Err(msg) => println!("Error: {}", msg),
-                }
-            }
-        }
-    }
-}
+mod zigate;
 
 fn send(cmd: & Vec<u8>) {
     let ama0 = Path::new("/dev/ttyAMA0");
@@ -98,7 +69,7 @@ fn get_addr() -> Result<Vec<u8>, &'static str> {
 fn endpoint_list() {
     match get_addr() {
         Ok(addr) => send_cmd(0x0045, addr),
-        Err(msg) => println!(msg),
+        Err(msg) => println!("{}", msg),
     }
 }
 
@@ -137,18 +108,30 @@ fn sender() {
     }
 }
 
+fn response_callback(cmd: &command::Command) {
+    let response = responses::parse_response(cmd);
+    println!("{}", response.to_string());
+}
+
 fn main() {
     env_logger::init();
 
-    let recver = thread::spawn(move || {
-        recv();
-    });
+    //let recver = thread::spawn(move || {
+    //    recv();
+    //});
 
     let cmd = command::Command::new(0x0010, vec![]).unwrap();
-    let msg = cmd.serialize();
-    debug!("msg {:?}", msg);
+    //let msg = cmd.serialize();
+    //debug!("msg {:?}", msg);
 
-    sender();
+    //sender();
 
-    recver.join().unwrap();
+    //recver.join().unwrap();
+
+    let path = Path::new("/dev/ttyAMA0");
+    let mut zigate = zigate::Zigate::new(path);
+    zigate.set_response_callback(response_callback);
+    let handle = zigate.start().unwrap();
+    zigate.send(&cmd);
+    handle.join().unwrap();
 }
