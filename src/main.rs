@@ -16,12 +16,14 @@ mod responses;
 mod zigate;
 
 fn start(zigate: &mut zigate::Zigate) {
+    zigate.send(&commands::start_network());
+    thread::sleep(Duration::new(2, 0));
     zigate.send(&commands::set_channel_mask(11));
-    thread::sleep(Duration::new(1, 0));
+    thread::sleep(Duration::new(2, 0));
     zigate.send(&commands::set_device_type(commands::DeviceType::Coordinator));
-    thread::sleep(Duration::new(1, 0));
+    thread::sleep(Duration::new(2, 0));
     zigate.send(&commands::get_network_state());
-    thread::sleep(Duration::new(1, 0));
+    thread::sleep(Duration::new(2, 0));
     zigate.send(&commands::get_version());
 }
 
@@ -49,6 +51,17 @@ fn get_addr() -> Result<u16, &'static str> {
     };
 }
 
+fn get_u8() -> Result<u8, &'static str> {
+    let mut buf = String::new();
+    match io::stdin().read_line(&mut buf) {
+        Ok(_) => match &buf[..buf.len()-1].parse::<u8>() {
+            Ok(endpoint) => return Ok(*endpoint),
+            _ => return Err("Decode error"),
+        },
+        _ => return Err("Wrong length"),
+    };
+}
+
 fn endpoint_list(zigate: &mut zigate::Zigate) {
     match get_addr() {
         Ok(addr) => zigate.send(&commands::active_endpoint_request(addr)),
@@ -56,13 +69,49 @@ fn endpoint_list(zigate: &mut zigate::Zigate) {
     }
 }
 
+fn cluster_list(zigate: &mut zigate::Zigate) {
+    match get_addr() {
+        Ok(addr) => {
+            println!("enter endpoint: ");
+            match get_u8() {
+                Ok(endpoint) => zigate.send(&commands::simple_descriptor_request(addr, endpoint)),
+                Err(msg) => println!("{}", msg),
+            }
+        },
+        Err(msg) => println!("{}", msg),
+    }
+}
+
+fn action_onoff(zigate: &mut zigate::Zigate) {
+    match get_addr() {
+        Ok(addr) => {
+            println!("enter endpoint: ");
+            match get_u8() {
+                Ok(endpoint) => {
+                    println!("on/off (0/1): ");
+                    match get_u8() {
+                        Ok(c) => zigate.send(&commands::action_onoff(addr, 1, endpoint, c)),
+                        Err(msg) => println!("{}", msg),
+                    }
+                },
+                Err(msg) => println!("{}", msg),
+            }
+        },
+        Err(msg) => println!("{}", msg),
+    }
+}
+
 fn list_commands() {
     println!("Commands:");
     println!("  help");
+    println!("  reset");
+    println!("  erase");
     println!("  start");
     println!("  start inclusion");
     println!("  devices list");
     println!("  endpoint list");
+    println!("  cluster list");
+    println!("  action onoff");
 }
 
 fn sender(zigate: &mut zigate::Zigate) {
@@ -76,10 +125,14 @@ fn sender(zigate: &mut zigate::Zigate) {
                     "" => {},
                     "h" => list_commands(),
                     "help" => list_commands(),
+                    "reset" => zigate.send(&commands::reset()),
+                    "erase" => zigate.send(&commands::erase()),
                     "start" => start(zigate),
                     "start inclusion" => start_inclusion(zigate),
                     "devices list" => devices_list(zigate),
                     "endpoint list" => endpoint_list(zigate),
+                    "cluster list" => cluster_list(zigate),
+                    "action onoff" => action_onoff(zigate),
                     unk => {
                         println!("Unknown command {}", unk);
                         list_commands();
@@ -92,8 +145,16 @@ fn sender(zigate: &mut zigate::Zigate) {
 }
 
 fn response_callback(cmd: &command::Command) {
-    let response = responses::parse_response(cmd);
+    let response = responses::ResponseBox::from_command(cmd);
     println!("{}", response.to_string());
+    let mut zigate = zigate::Zigate::new(Path::new("/dev/ttyAMA0"));
+    match response {
+        responses::ResponseBox::DeviceAnnounceBox(device) => {
+            println!("Got device announce, sending active endpoint request...");
+            zigate.send(&commands::active_endpoint_request(device.short_address));
+        },
+        _ => (),
+    }
 }
 
 fn main() {

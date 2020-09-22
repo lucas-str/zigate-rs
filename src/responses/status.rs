@@ -1,7 +1,7 @@
 use bytebuffer::ByteBuffer;
 
 use crate::responses::Response;
-use crate::command::Command;
+use crate::command::{Command, MessageType};
 
 #[derive(Debug)]
 pub struct Status {
@@ -38,8 +38,9 @@ impl Response for Status {
             5 => "Stack already started",
             _ => "Failed",
         };
+        let packet_type = MessageType::from_u16(self.packet_type);
         String::from(
-            format!("Status : {}, seq_num {}, packet_type {:#X}", status, self.seq_num,
-                    self.packet_type))
+            format!("Status : {} ({}), seq_num {}, packet_type {:?} ({:#X})", status, self.status,
+            self.seq_num, packet_type, self.packet_type))
     }
 }

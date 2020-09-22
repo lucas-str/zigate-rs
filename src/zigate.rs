@@ -35,8 +35,9 @@ pub fn recv_thread(pathbuf: PathBuf, cb: Arc<Mutex<ResponseCallback>>) {
                         //println!("{}", response.to_string());
                         cb(&cmd);
                     },
-                    Err(msg) => println!("Error: {}", msg),
+                    Err(err) => println!("Error: {}\n{:?}", err, msg),
                 }
+                msg.clear();
             }
         }
     }

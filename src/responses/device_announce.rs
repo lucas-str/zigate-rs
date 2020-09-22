@@ -5,11 +5,11 @@ use crate::command::Command;
 
 #[derive(Debug)]
 pub struct DeviceAnnounce {
-    short_address: u16,
-    ieee_address: u64,
-    mac_capability: u8,
-    flags: u8,
-    rejoin_info: u8,
+    pub short_address: u16,
+    pub ieee_address: u64,
+    pub mac_capability: u8,
+    pub flags: u8,
+    pub rejoin_info: u8,
 }
 
 impl Response for DeviceAnnounce {

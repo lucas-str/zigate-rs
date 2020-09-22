@@ -9,9 +9,13 @@ pub enum MessageType {
     // Commands
     GetNetworkState = 0x0009,
     GetVersion = 0x0010,
+    Reset = 0x0011,
+    Erase = 0x0012,
     GetDevicesList = 0x0015,
     SetChannelMask = 0x0021,
     SetDeviceType = 0x0023,
+    StartNetwork = 0x0024,
+    SimpleDescriptorRequest = 0x0043,
     ActiveEndpoint = 0x0045,
     PermitJoinRequest = 0x0049,
 
@@ -20,10 +24,22 @@ pub enum MessageType {
     // Responses
     Status = 0x8000,
     DevicesList = 0x8015,
+    SimpleDescriptorResponse = 0x8043,
     ActiveEndpoints = 0x8045,
+
+    RouterDiscoveryConfirm = 0x8701,
 
     DeviceAnnounce = 0x004D,
     Unknown,
+}
+
+impl MessageType {
+    pub fn from_u16(msg_type: u16) -> MessageType {
+        match FromPrimitive::from_u16(msg_type) {
+            Some(msg_type) => msg_type,
+            None => MessageType::Unknown,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -57,11 +73,11 @@ impl Command {
         let mut buf = ByteBuffer::from_bytes(&msg);
 
         let msg_type = buf.read_u16().unwrap();
-        debug!("msg_type: {:#X}", msg_type);
+        trace!("msg_type: {:#X}", msg_type);
         let len = buf.read_u16().unwrap();
-        debug!("len: {}", len);
+        trace!("len: {}", len);
         let checksum = buf.read_u8().unwrap();
-        debug!("checksum: {}", checksum);
+        trace!("checksum: {}", checksum);
 
         if msg.len() - 5 != len.into() {
             debug!("msg.len() {} len {}", msg.len(), len);
@@ -69,7 +85,7 @@ impl Command {
         }
 
         let data = buf.read_bytes(len.into()).unwrap(); 
-        debug!("data: {:?}", data);
+        trace!("data: {:?}", data);
 
         let cmd = Command {
             msg_type,
@@ -119,10 +135,7 @@ impl Command {
 
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let msg_type = match FromPrimitive::from_u16(self.msg_type) {
-            Some(msg_type) => msg_type,
-            None => MessageType::Unknown,
-        };
+        let msg_type = MessageType::from_u16(self.msg_type);
         write!(f, "{{{:?} ({:#X}), data: {:X?}}}", msg_type, self.msg_type, self.data)
     }
 }

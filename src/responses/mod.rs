@@ -1,39 +1,44 @@
-use std::boxed::Box;
+//use std::boxed::Box;
 //use bytebuffer::ByteBuffer;
 use num_traits::FromPrimitive;
 
 use crate::command::{Command, MessageType};
 
-mod status;
-mod device_announce;
-mod devices_list;
-mod active_endpoints;
+macro_rules! make_response_box {
+    ( $($mod:ident, $box:ident ($resp:ident) ),+ ) => {
+        $(mod $mod;)+
+        $(pub use $mod::$resp;)+
 
-pub use status::Status;
-pub use device_announce::DeviceAnnounce;
-pub use devices_list::DevicesList;
-pub use active_endpoints::ActiveEndpoints;
+        pub enum ResponseBox {
+            $( $box($resp), )+
+            UnknownBox(Unknown),
+        }
 
-//enum ResponseType {
-//    StatusResp(Status),
-//    UnknownResp(UnknownResponse),
-//}
-
-//struct ResponseBox {
-//    resp_type: ResponseType,
-//    resp: &Box<dyn Response>,
-//}
-
-pub fn parse_response(cmd: &Command) -> Box<dyn Response> {
-    match FromPrimitive::from_u16(cmd.msg_type) {
-        Some(MessageType::Status) => Box::new(Status::from_command(&cmd).unwrap()),
-        Some(MessageType::DeviceAnnounce) => Box::new(DeviceAnnounce::from_command(&cmd).unwrap()),
-        Some(MessageType::DevicesList) => Box::new(DevicesList::from_command(&cmd).unwrap()),
-        Some(MessageType::ActiveEndpoints) => Box::new(ActiveEndpoints::from_command(&cmd).unwrap()),
-        Some(_) => Box::new(UnknownResponse::from_command(&cmd).unwrap()),
-        None => Box::new(UnknownResponse::from_command(&cmd).unwrap()),
+        impl ResponseBox {
+            pub fn to_string(&self) -> String {
+                match self {
+                    $( ResponseBox::$box(response) => response.to_string(), )+
+                    ResponseBox::UnknownBox(response) => response.to_string(),
+                }
+            }
+            pub fn from_command(cmd: &Command) -> ResponseBox {
+                match FromPrimitive::from_u16(cmd.msg_type) {
+                    $( Some(MessageType::$resp) => ResponseBox::$box($resp::from_command(&cmd).unwrap()), )+
+                    Some(_) => ResponseBox::UnknownBox(Unknown::from_command(&cmd).unwrap()),
+                    None => ResponseBox::UnknownBox(Unknown::from_command(&cmd).unwrap()),
+                }
+            }
+        }
     }
 }
+
+make_response_box!(
+    status, StatusBox(Status),
+    device_announce, DeviceAnnounceBox(DeviceAnnounce),
+    devices_list, DevicesListBox(DevicesList),
+    active_endpoints, ActiveEndpointsBox(ActiveEndpoints),
+    simple_descriptor, SimpleDescriptorResponseBox(SimpleDescriptorResponse)
+    );
 
 pub trait Response {
     fn from_command(cmd: &Command) -> Result<Self, &'static str> where Self: std::marker::Sized;
@@ -41,14 +46,14 @@ pub trait Response {
 }
 
 #[derive(Debug)]
-pub struct UnknownResponse {
+pub struct Unknown {
     msg_type: u16,
     data: Vec<u8>,
 }
 
-impl Response for UnknownResponse {
-    fn from_command(cmd: &Command) -> Result<UnknownResponse, &'static str> {
-        Ok(UnknownResponse { msg_type: cmd.msg_type, data: cmd.data.clone() })
+impl Response for Unknown {
+    fn from_command(cmd: &Command) -> Result<Unknown, &'static str> {
+        Ok(Unknown { msg_type: cmd.msg_type, data: cmd.data.clone() })
     }
     fn to_string(&self) -> String {
         String::from(
