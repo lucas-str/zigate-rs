@@ -64,6 +64,32 @@ pub fn permit_join_request(addr: u16, interval: u8, tc_significance: u8) -> Comm
     Command::new(MessageType::PermitJoinRequest as u16, data).unwrap()
 }
 
+pub fn action_move(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8, mode: u8, rate: u8) ->
+                   Command {
+    let mut data = vec![];
+    data.push(2); // short address mode
+    data.write_u16::<BigEndian>(addr).unwrap();
+    data.push(src_endpoint);
+    data.push(dst_endpoint);
+    data.push(cmd);
+    data.push(mode); // 0 up, 1 down
+    data.push(rate);
+    Command::new(MessageType::ActionMove as u16, data).unwrap()
+}
+
+pub fn action_move_onoff(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8, level: u8,
+                         transition_time: u16) -> Command {
+    let mut data = vec![];
+    data.push(2); // short address mode
+    data.write_u16::<BigEndian>(addr).unwrap();
+    data.push(src_endpoint);
+    data.push(dst_endpoint);
+    data.push(cmd);
+    data.push(level);
+    data.write_u16::<BigEndian>(transition_time).unwrap();
+    Command::new(MessageType::ActionMoveOnOff as u16, data).unwrap()
+}
+
 pub fn action_onoff(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8) -> Command {
     let mut data = vec![];
     data.push(2); // short address mode
@@ -72,4 +98,30 @@ pub fn action_onoff(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8) -> C
     data.push(dst_endpoint);
     data.push(cmd);
     Command::new(MessageType::ActionOnOff as u16, data).unwrap()
+}
+
+pub fn action_onoff_timed(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8, on_time: u16,
+                          off_time: u16) -> Command {
+    let mut data = vec![];
+    data.push(2); // short address mode
+    data.write_u16::<BigEndian>(addr).unwrap();
+    data.push(src_endpoint);
+    data.push(dst_endpoint);
+    data.push(cmd);
+    data.write_u16::<BigEndian>(on_time).unwrap();
+    data.write_u16::<BigEndian>(off_time).unwrap();
+    Command::new(MessageType::ActionOnOffTimed as u16, data).unwrap()
+}
+
+pub fn action_onoff_effect(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8, effect_id: u8,
+                           effect_gradient: u8) -> Command {
+    let mut data = vec![];
+    data.push(2); // short address mode
+    data.write_u16::<BigEndian>(addr).unwrap();
+    data.push(src_endpoint);
+    data.push(dst_endpoint);
+    data.push(cmd);
+    data.push(effect_id);
+    data.push(effect_gradient);
+    Command::new(MessageType::ActionOnOffEffect as u16, data).unwrap()
 }

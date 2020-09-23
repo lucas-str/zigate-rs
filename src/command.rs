@@ -19,7 +19,12 @@ pub enum MessageType {
     ActiveEndpoint = 0x0045,
     PermitJoinRequest = 0x0049,
 
+    ActionMove = 0x0080,
+    ActionMoveOnOff = 0x0081,
+    ActionMoveStep = 0x0082,
     ActionOnOff = 0x0092,
+    ActionOnOffTimed = 0x0093,
+    ActionOnOffEffect = 0x0094,
 
     // Responses
     Status = 0x8000,
