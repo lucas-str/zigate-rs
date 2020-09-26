@@ -4,6 +4,7 @@ use std::io;
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
+//use std::sync::{Arc, Mutex};
 
 // Hex parsing
 use std::io::Cursor;
@@ -14,6 +15,7 @@ mod command;
 mod commands;
 mod responses;
 mod zigate;
+mod serial;
 
 fn start(zigate: &mut zigate::Zigate) {
     zigate.send(&commands::start_network());
@@ -157,15 +159,47 @@ fn response_callback(cmd: &command::Command) {
     }
 }
 
+fn response_callback2(cmd: &command::Command, _data: &mut u8) {
+    let response = responses::ResponseBox::from_command(cmd);
+    println!("{}", response.to_string());
+    println!("{}", _data);
+    let mut zigate = zigate::Zigate::new(Path::new("/dev/ttyAMA0"));
+    match response {
+        responses::ResponseBox::DeviceAnnounceBox(device) => {
+            println!("Got device announce, sending active endpoint request...");
+            zigate.send(&commands::active_endpoint_request(device.short_address));
+        },
+        _ => (),
+    }
+}
+
 fn main() {
     env_logger::init();
 
     let path = Path::new("/dev/ttyAMA0");
-    let mut zigate = zigate::Zigate::new(path);
-    zigate.set_response_callback(response_callback);
-    let handle = zigate.start().unwrap();
+    //let mut zigate = zigate::Zigate::new(path);
+    //zigate.set_response_callback(response_callback);
+    ////let handle = zigate.start().unwrap();
+    ////let handle = zigate.start();
 
-    sender(&mut zigate);
+    //let mut data = Arc::new(Mutex::new(0u8));
+    //let handle = zigate.start2(response_callback2, &data);
+    //{
+    //    let mut data = data.lock().unwrap();
+    //    *data += 1;
+    //}
 
-    handle.join().unwrap();
+    //sender(&mut zigate);
+
+    //handle.join().unwrap();
+
+    let mut sender = serial::UartSender::new(&path);
+    let rx = serial::uart_recver(&path);
+    sender.send(&commands::get_version());
+    loop {
+        match rx.recv() {
+            Ok(cmd) => println!("received {}", cmd),
+            Err(err) => println!("error {}", err),
+        }
+    }
 }
