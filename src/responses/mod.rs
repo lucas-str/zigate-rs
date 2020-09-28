@@ -37,7 +37,8 @@ make_response_box!(
     device_announce, DeviceAnnounceBox(DeviceAnnounce),
     devices_list, DevicesListBox(DevicesList),
     active_endpoints, ActiveEndpointsBox(ActiveEndpoints),
-    simple_descriptor, SimpleDescriptorResponseBox(SimpleDescriptorResponse)
+    simple_descriptor, SimpleDescriptorResponseBox(SimpleDescriptorResponse),
+    version_list, VersionListBox(VersionList)
     );
 
 pub trait Response {
@@ -52,8 +53,8 @@ pub struct Unknown {
 }
 
 impl Response for Unknown {
-    fn from_command(cmd: &Command) -> Result<Unknown, &'static str> {
-        Ok(Unknown { msg_type: cmd.msg_type, data: cmd.data.clone() })
+    fn from_command(cmd: &Command) -> Result<Self, &'static str> {
+        Ok(Self { msg_type: cmd.msg_type, data: cmd.data.clone() })
     }
     fn to_string(&self) -> String {
         String::from(

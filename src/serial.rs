@@ -25,9 +25,7 @@ impl UartSender {
     }
 }
 
-fn recv_commands(path: &Path, tx: Sender<command::Command>) {
-    let mut uart = Uart::with_path(path, 115_200, Parity::None, 8, 1).unwrap();
-    uart.set_read_mode(1, Duration::default()).unwrap();
+fn recv_commands(mut uart: Uart, tx: Sender<command::Command>) {
     let mut buf = [0u8; 1];
     let mut msg = Vec::new();
     loop {
@@ -49,10 +47,12 @@ fn recv_commands(path: &Path, tx: Sender<command::Command>) {
     }
 }
 
-pub fn uart_recver(path: &'static Path) -> Receiver<command::Command> {
+pub fn uart_recver(path: &Path) -> Receiver<command::Command> {
     let (tx, rx) = channel::<command::Command>();
+    let mut uart = Uart::with_path(path, 115_200, Parity::None, 8, 1).unwrap();
+    uart.set_read_mode(1, Duration::default()).unwrap();
     thread::spawn(move || {
-        recv_commands(path, tx);
+        recv_commands(uart, tx);
     });
     rx
 }

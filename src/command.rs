@@ -4,7 +4,7 @@ use bytebuffer::ByteBuffer;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-#[derive(FromPrimitive, Debug)]
+#[derive(Hash, Eq, PartialEq, FromPrimitive, Debug)]
 pub enum MessageType {
     // Commands
     GetNetworkState = 0x0009,
@@ -28,6 +28,7 @@ pub enum MessageType {
 
     // Responses
     Status = 0x8000,
+    VersionList = 0x8010,
     DevicesList = 0x8015,
     SimpleDescriptorResponse = 0x8043,
     ActiveEndpoints = 0x8045,
@@ -47,7 +48,7 @@ impl MessageType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Command {
     pub msg_type: u16,
     pub data: Vec<u8>,
