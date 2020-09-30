@@ -5,11 +5,11 @@ use crate::command::Command;
 
 #[derive(Debug)]
 pub struct ActiveEndpoints {
-    seq_num: u8,
-    status: u8,
-    address: u16,
-    endpoint_count: u8,
-    endpoint_list: Vec<u8>,
+    pub seq_num: u8,
+    pub status: u8,
+    pub address: u16,
+    pub endpoint_count: u8,
+    pub endpoint_list: Vec<u8>,
 }
 
 impl Response for ActiveEndpoints {

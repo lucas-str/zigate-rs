@@ -5,19 +5,19 @@ use crate::command::Command;
 
 #[derive(Debug)]
 pub struct SimpleDescriptorResponse {
-    seq_num: u8,
-    status: u8,
-    addr: u16,
-    len: u8,
-    endpoint: u8,
-    profile: u16,
-    device_id: u16,
-    version: u8, // 4 bits
-    reserved: u8, // 4 bits
-    in_cluster_count: u8,
-    in_cluster_list: Vec<u16>,
-    out_cluster_count: u8,
-    out_cluster_list: Vec<u16>,
+    pub seq_num: u8,
+    pub status: u8,
+    pub address: u16,
+    pub len: u8,
+    pub endpoint: u8,
+    pub profile: u16,
+    pub device_id: u16,
+    pub version: u8, // 4 bits
+    pub reserved: u8, // 4 bits
+    pub in_cluster_count: u8,
+    pub in_cluster_list: Vec<u16>,
+    pub out_cluster_count: u8,
+    pub out_cluster_list: Vec<u16>,
 }
 
 impl Response for SimpleDescriptorResponse {
@@ -26,7 +26,7 @@ impl Response for SimpleDescriptorResponse {
 
         let seq_num = buf.read_u8().unwrap();
         let status = buf.read_u8().unwrap();
-        let addr = buf.read_u16().unwrap();
+        let address = buf.read_u16().unwrap();
         let len = buf.read_u8().unwrap();
         let endpoint = buf.read_u8().unwrap();
         let profile = buf.read_u16().unwrap();
@@ -48,7 +48,7 @@ impl Response for SimpleDescriptorResponse {
         Ok(SimpleDescriptorResponse {
             seq_num,
             status,
-            addr,
+            address,
             len,
             endpoint,
             profile,
@@ -65,7 +65,7 @@ impl Response for SimpleDescriptorResponse {
         let mut s = String::from("Simple Descriptor Response: ");
         s.push_str(&format!("seq_num {} ", &self.seq_num));
         s.push_str(&format!("status {} ", &self.status));
-        s.push_str(&format!("addr {:X} ", &self.addr));
+        s.push_str(&format!("address {:X} ", &self.address));
         s.push_str(&format!("len {} ", &self.len));
         s.push_str(&format!("endpoint {} ", &self.endpoint));
         s.push_str(&format!("profile {} ", &self.profile));

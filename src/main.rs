@@ -13,9 +13,10 @@ use std::path::Path;
 
 mod command;
 mod commands;
+mod device;
 mod responses;
-mod zigate;
 mod serial;
+mod zigate;
 
 fn sender(mut zigate: zigate::Zigate) {
     loop {
@@ -51,6 +52,11 @@ fn main() {
     match zigate.get_version() {
         Ok(version) => println!("{}", version),
         _ => println!("error"),
+    }
+
+    let devices = zigate.get_devices();
+    for (addr, device) in devices {
+        println!("devices {:?}", device);
     }
 
     zhandle.join().unwrap();

@@ -41,6 +41,8 @@ make_response_box!(
     version_list, VersionListBox(VersionList)
     );
 
+pub use devices_list::Device;
+
 pub trait Response {
     fn from_command(cmd: &Command) -> Result<Self, &'static str> where Self: std::marker::Sized;
     fn to_string(&self) -> String;

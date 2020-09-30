@@ -5,13 +5,13 @@ use crate::command::{Command, MessageType};
 
 #[derive(Debug)]
 pub struct Status {
-    status: u8,
-    seq_num: u8,
-    packet_type: u16,
+    pub status: u8,
+    pub seq_num: u8,
+    pub packet_type: u16,
 }
 
 impl Response for Status {
-    fn from_command(cmd: &Command) -> Result<Status, &'static str> {
+    fn from_command(cmd: &Command) -> Result<Self, &'static str> {
         let mut buf = ByteBuffer::from_bytes(&cmd.data);
         let status = match buf.read_u8() {
             Ok(status) => status,
@@ -26,7 +26,7 @@ impl Response for Status {
             Err(_) => return Err("Failed to read packet_type"),
         };
 
-        Ok(Status { status, seq_num, packet_type })
+        Ok(Self { status, seq_num, packet_type })
     }
     fn to_string(&self) -> String {
         let status = match self.status {

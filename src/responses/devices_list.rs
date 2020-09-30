@@ -4,12 +4,12 @@ use crate::responses::Response;
 use crate::command::Command;
 
 #[derive(Debug)]
-struct Device {
-    id: u8,
-    short_address: u16,
-    ieee_address: u64,
-    power_source: bool,
-    link_quality: u8,
+pub struct Device {
+    pub id: u8,
+    pub short_address: u16,
+    pub ieee_address: u64,
+    pub power_source: bool,
+    pub link_quality: u8,
 }
 
 impl Device {
@@ -30,7 +30,7 @@ impl Device {
 
 #[derive(Debug)]
 pub struct DevicesList {
-    devices: Vec<Device>,
+    pub devices: Vec<Device>,
 }
 
 impl Response for DevicesList {
