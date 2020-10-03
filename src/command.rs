@@ -26,12 +26,17 @@ pub enum MessageType {
     ActionOnOffTimed = 0x0093,
     ActionOnOffEffect = 0x0094,
 
+    ReadAttributeRequest = 0x0100,
+
     // Responses
     Status = 0x8000,
     VersionList = 0x8010,
     DevicesList = 0x8015,
     SimpleDescriptorResponse = 0x8043,
     ActiveEndpoints = 0x8045,
+
+    ReadAttributeResponse = 0x8100,
+    ReportIndividualAttributResponse = 0x8102,
 
     RouterDiscoveryConfirm = 0x8701,
 

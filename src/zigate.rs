@@ -31,6 +31,7 @@ struct ZigateData {
     pub version: Option<String>,
     pub last_resp: HashMap<MessageType, Command>,
     pub last_status: HashMap<MessageType, Command>,
+    pub exp_resp: u16,
     pub devices: HashMap<u16, Device>,
 }
 
@@ -42,6 +43,7 @@ impl Zigate {
             version: None,
             last_resp: HashMap::new(),
             last_status: HashMap::new(),
+            exp_resp: 0,
             devices: HashMap::new(),
         };
         let data = Arc::new(Mutex::new(data));
@@ -64,6 +66,21 @@ impl Zigate {
 
     pub fn send(&mut self, cmd: &Command) {
         self.sender.send(cmd);
+    }
+
+    fn wait_for_responses(&mut self) {
+        for _ in 0..50 {
+            {
+                let data = self.data.lock().unwrap();
+                if data.exp_resp == 0 {
+                    return
+                }
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+        let mut data = self.data.lock().unwrap();
+        error!("{} message(s) lost", data.exp_resp);
+        data.exp_resp = 0;
     }
 
     fn wait_for_response(&mut self, msg_type: &MessageType) -> Option<Command> {
@@ -113,8 +130,24 @@ impl Zigate {
         self.remove_last_response(&MessageType::DevicesList);
         self.send(&commands::get_devices_list());
         self.wait_for_response(&MessageType::DevicesList);
+        self.wait_for_responses();
         let data = self.data.lock().unwrap();
         data.devices.clone()
+    }
+
+    pub fn get_level(&mut self, address: u16, endpoint: u8) -> Option<u8> {
+        let cmd = commands::read_attribut_request(address, 1, endpoint, 8, 0, 0, vec![0u16]);
+        self.remove_last_response(&MessageType::ReadAttributeResponse);
+        self.send(&cmd);
+        match self.wait_for_response(&MessageType::ReportIndividualAttributResponse) {
+            Some(cmd) => {
+                if let Ok(attr_resp) = responses::ReadAttributeResponse::from_command(&cmd) {
+                    return Some(attr_resp.data[0])
+                }
+                None
+            },
+            _ => None,
+        }
     }
 }
 
@@ -138,6 +171,7 @@ fn recv_fn(rx: Receiver<Command>, mut sender: UartSender, data: Arc<Mutex<Zigate
                             let device = Device::from_device_announce(&msg);
                             data.devices.insert(device.short_address, device);
                             sender.send(&commands::active_endpoint_request(msg.short_address));
+                            data.exp_resp += 1;
                         }
                     },
                     ResponseBox::DevicesListBox(msg) => {
@@ -146,6 +180,7 @@ fn recv_fn(rx: Receiver<Command>, mut sender: UartSender, data: Arc<Mutex<Zigate
                                 let device = Device::from_devices_list_elem(device);
                                 sender.send(
                                     &commands::active_endpoint_request(device.short_address));
+                                data.exp_resp += 1;
                                 data.devices.insert(device.short_address, device);
                             }
                         }
@@ -156,7 +191,9 @@ fn recv_fn(rx: Receiver<Command>, mut sender: UartSender, data: Arc<Mutex<Zigate
                             for endpoint in msg.endpoint_list {
                                 sender.send(&commands::simple_descriptor_request(msg.address,
                                                                                  endpoint));
+                                data.exp_resp += 1;
                             }
+                            data.exp_resp -= 1;
                         }
                     },
                     ResponseBox::SimpleDescriptorResponseBox(msg) => {
@@ -165,6 +202,7 @@ fn recv_fn(rx: Receiver<Command>, mut sender: UartSender, data: Arc<Mutex<Zigate
                                 endpoint.set_in_clusters(msg.in_cluster_list.clone());
                                 endpoint.set_out_clusters(msg.out_cluster_list.clone());
                             }
+                            data.exp_resp -= 1;
                         }
                     },
                     _ => {},
@@ -228,7 +266,7 @@ impl Device {
 
 #[derive(Debug, Clone)]
 pub struct Endpoint {
-    id: u8,
+    pub id: u8,
     in_clusters: Vec<u16>,
     out_clusters: Vec<u16>,
 }

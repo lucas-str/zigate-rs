@@ -125,3 +125,26 @@ pub fn action_onoff_effect(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u
     data.push(effect_gradient);
     Command::new(MessageType::ActionOnOffEffect as u16, data).unwrap()
 }
+
+pub fn read_attribut_request(addr: u16, src_endpoint: u8, dst_endpoint: u8, cluster_id: u16,
+                             direction: u8, manuf_id: u16, attr_list: Vec<u16>) -> Command {
+    let mut data = vec![];
+    data.push(2); // short address mode
+    data.write_u16::<BigEndian>(addr).unwrap();
+    data.push(src_endpoint);
+    data.push(dst_endpoint);
+    data.write_u16::<BigEndian>(cluster_id).unwrap();
+    data.push(0); // direction server to client
+    let manuf_spec = match manuf_id {
+        0 => 0,
+        _ => 1,
+    };
+    data.push(manuf_spec);
+    data.write_u16::<BigEndian>(manuf_id).unwrap(); // manufacturer code
+    let attr_len = attr_list.len() as u8;
+    data.push(attr_len);
+    for attr in attr_list {
+        data.write_u16::<BigEndian>(attr).unwrap();
+    }
+    Command::new(MessageType::ReadAttributeRequest as u16, data).unwrap()
+}

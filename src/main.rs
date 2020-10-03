@@ -13,7 +13,6 @@ use std::path::Path;
 
 mod command;
 mod commands;
-mod device;
 mod responses;
 mod serial;
 mod zigate;
@@ -56,8 +55,14 @@ fn main() {
 
     let devices = zigate.get_devices();
     for (addr, device) in devices {
-        println!("devices {:?}", device);
+        println!("DEVICES {:?}", device);
+        let level = zigate.get_level(addr, device.endpoints[0].id);
+        match level {
+            Some(level) => println!("LEVEL {}", level),
+            None => println!("FAILED TO READ LEVEL"),
+        }
     }
+
 
     zhandle.join().unwrap();
 

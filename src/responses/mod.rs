@@ -38,7 +38,8 @@ make_response_box!(
     devices_list, DevicesListBox(DevicesList),
     active_endpoints, ActiveEndpointsBox(ActiveEndpoints),
     simple_descriptor, SimpleDescriptorResponseBox(SimpleDescriptorResponse),
-    version_list, VersionListBox(VersionList)
+    version_list, VersionListBox(VersionList),
+    read_attribute, ReadAttributeResponseBox(ReadAttributeResponse)
     );
 
 pub use devices_list::Device;
