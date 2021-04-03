@@ -126,6 +126,18 @@ pub fn action_onoff_effect(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u
     Command::new(MessageType::ActionOnOffEffect as u16, data).unwrap()
 }
 
+pub fn action_move_color_temp(addr: u16, src_endpoint: u8, dst_endpoint: u8, color_temp: u16,
+                              transition_time: u16) -> Command {
+    let mut data = vec![];
+    data.push(2); // short address mode
+    data.write_u16::<BigEndian>(addr).unwrap();
+    data.push(src_endpoint);
+    data.push(dst_endpoint);
+    data.write_u16::<BigEndian>(color_temp).unwrap();
+    data.write_u16::<BigEndian>(transition_time).unwrap();
+    Command::new(MessageType::ActionMoveColorTemp as u16, data).unwrap()
+}
+
 pub fn read_attribut_request(addr: u16, src_endpoint: u8, dst_endpoint: u8, cluster_id: u16,
                              direction: u8, manuf_id: u16, attr_list: Vec<u16>) -> Command {
     let mut data = vec![];
@@ -134,7 +146,7 @@ pub fn read_attribut_request(addr: u16, src_endpoint: u8, dst_endpoint: u8, clus
     data.push(src_endpoint);
     data.push(dst_endpoint);
     data.write_u16::<BigEndian>(cluster_id).unwrap();
-    data.push(0); // direction server to client
+    data.push(direction); // direction (0 = server to client)
     let manuf_spec = match manuf_id {
         0 => 0,
         _ => 1,
@@ -147,4 +159,8 @@ pub fn read_attribut_request(addr: u16, src_endpoint: u8, dst_endpoint: u8, clus
         data.write_u16::<BigEndian>(attr).unwrap();
     }
     Command::new(MessageType::ReadAttributeRequest as u16, data).unwrap()
+}
+
+pub fn simple_read_attribut_request(addr: u16, endpoint: u8, cluster_id: u16, attr: u16) -> Command {
+    read_attribut_request(addr, 1, endpoint, cluster_id, 0, 0, vec![attr])
 }

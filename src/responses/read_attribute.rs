@@ -1,7 +1,7 @@
 use bytebuffer::ByteBuffer;
 
 use crate::responses::Response;
-use crate::command::{Command, MessageType};
+use crate::command::Command;
 
 pub struct ReadAttributeResponse {
     pub seq_num: u8,
@@ -44,8 +44,8 @@ impl Response for ReadAttributeResponse {
     }
     fn to_string(&self) -> String {
         String::from(
-            format!("Read Attribute Response : addr {:X}, endpoint {}, cluster {}, enum {}, status {}, data type {},  data {:?}",
+            format!("Read Attribute Response : addr {:X}, endpoint {}, cluster {}, enum {}, status {}, attr enum {}, data type {},  data {:?}",
                     self.src_addr, self.endpoint, self.cluster_id, self.attr_enum,
-                    self.attr_status, self.attr_data_type, self.data))
+                    self.attr_status, self.attr_enum, self.attr_data_type, self.data))
     }
 }

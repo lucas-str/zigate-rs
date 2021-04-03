@@ -11,6 +11,7 @@ macro_rules! make_response_box {
 
         pub enum ResponseBox {
             $( $box($resp), )+
+            ReportIndividualAttributResponseBox(ReadAttributeResponse),
             UnknownBox(Unknown),
         }
 
@@ -18,12 +19,14 @@ macro_rules! make_response_box {
             pub fn to_string(&self) -> String {
                 match self {
                     $( ResponseBox::$box(response) => response.to_string(), )+
+                    Self::ReportIndividualAttributResponseBox(response) => response.to_string(),
                     ResponseBox::UnknownBox(response) => response.to_string(),
                 }
             }
             pub fn from_command(cmd: &Command) -> ResponseBox {
                 match FromPrimitive::from_u16(cmd.msg_type) {
                     $( Some(MessageType::$resp) => ResponseBox::$box($resp::from_command(&cmd).unwrap()), )+
+                    Some(MessageType::ReportIndividualAttributResponse) => ResponseBox::ReportIndividualAttributResponseBox(ReadAttributeResponse::from_command(&cmd).unwrap()),
                     Some(_) => ResponseBox::UnknownBox(Unknown::from_command(&cmd).unwrap()),
                     None => ResponseBox::UnknownBox(Unknown::from_command(&cmd).unwrap()),
                 }

@@ -2,39 +2,18 @@
 
 use std::io;
 use std::path::Path;
-//use std::thread;
-//use std::time::Duration;
-//use std::sync::{Arc, Mutex};
+use std::{
+    thread,
+    time::Duration,
+};
 
-// Hex parsing
-//use std::io::Cursor;
-//use byteorder::{BigEndian, ReadBytesExt};
-//use hex::FromHex;
-
+mod cluster;
 mod command;
 mod commands;
+mod device;
 mod responses;
 mod serial;
 mod zigate;
-
-fn sender(mut zigate: zigate::Zigate) {
-    loop {
-        let mut buf = String::new();
-        match io::stdin().read_line(&mut buf) {
-            Ok(_n) => {
-                let input = &buf[..buf.len()-1];
-                match input {
-                    "" => {},
-                    "version" => zigate.send(&commands::get_version()),
-                    unk => {
-                        println!("Unknown command {}", unk);
-                    },
-                }
-            }
-            Err(error) => println!("Error: {}", error),
-        }
-    }
-}
 
 fn main() {
     env_logger::init();
@@ -45,8 +24,6 @@ fn main() {
 
     let zhandle = zigate.start();
 
-    //zigate.send(&commands::get_version());
-
     //thread::sleep(Duration::new(1, 0));
     match zigate.get_version() {
         Ok(version) => println!("{}", version),
@@ -56,28 +33,25 @@ fn main() {
     let devices = zigate.get_devices();
     for (addr, device) in devices {
         println!("DEVICES {:?}", device);
+        let on = zigate.get_onoff(addr, device.endpoints[0].id);
+        match on {
+            Ok(on) => println!("ON {}", on),
+            _ => println!("FAILED TO ON/OFF"),
+        }
         let level = zigate.get_level(addr, device.endpoints[0].id);
         match level {
-            Some(level) => println!("LEVEL {}", level),
-            None => println!("FAILED TO READ LEVEL"),
+            Ok(level) => println!("LEVEL {}", level),
+            _ => println!("FAILED TO READ LEVEL"),
+        }
+        zigate.move_to_color_temp(addr, 3, 370, 10);
+        thread::sleep(Duration::new(1, 0));
+        let color_temp = zigate.get_color_temp(addr, device.endpoints[0].id);
+        match color_temp {
+            Ok(color_temp) => println!("COLOR TEMP {}", color_temp),
+            _ => println!("FAILED TO READ COLOR TEMP"),
         }
     }
 
-
-    zhandle.join().unwrap();
-
-    //let mut zigate = serial::UartSender::new(&path);
-    //let rx = serial::uart_recver(&path);
-    //let recv = thread::spawn(move || {
-    //    loop {
-    //        match rx.recv() {
-    //            Ok(cmd) => println!("received {}", cmd),
-    //            Err(err) => println!("error {}", err),
-    //        }
-    //    }
-    //});
-
-    //sender(zigate);
-
-    //recv.join().unwrap();
+    thread::sleep(Duration::new(1, 0));
+    //zhandle.join().unwrap();
 }

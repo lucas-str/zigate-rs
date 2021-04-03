@@ -26,6 +26,8 @@ pub enum MessageType {
     ActionOnOffTimed = 0x0093,
     ActionOnOffEffect = 0x0094,
 
+    ActionMoveColorTemp = 0x00C0,
+
     ReadAttributeRequest = 0x0100,
 
     // Responses

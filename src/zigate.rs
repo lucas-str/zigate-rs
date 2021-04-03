@@ -15,10 +15,9 @@ use crate::{
     commands,
     responses,
     responses::{Response, ResponseBox},
-    //device::Device,
+    cluster::Cluster,
+    device::Device,
 };
-
-use crate::responses::Device as RespDevice;
 
 pub struct Zigate {
     data: Arc<Mutex<ZigateData>>,
@@ -135,19 +134,77 @@ impl Zigate {
         data.devices.clone()
     }
 
-    pub fn get_level(&mut self, address: u16, endpoint: u8) -> Option<u8> {
-        let cmd = commands::read_attribut_request(address, 1, endpoint, 8, 0, 0, vec![0u16]);
-        self.remove_last_response(&MessageType::ReadAttributeResponse);
+    pub fn get_onoff(&mut self, address: u16, endpoint: u8) -> Result<bool, ()> {
+        let cmd = commands::simple_read_attribut_request(address, endpoint, 6, 0);
+        self.remove_last_response(&MessageType::ReportIndividualAttributResponse);
         self.send(&cmd);
-        match self.wait_for_response(&MessageType::ReportIndividualAttributResponse) {
-            Some(cmd) => {
-                if let Ok(attr_resp) = responses::ReadAttributeResponse::from_command(&cmd) {
-                    return Some(attr_resp.data[0])
+        self.wait_for_response(&MessageType::ReportIndividualAttributResponse);
+        let data = self.data.lock().unwrap();
+        if let Some(device) = data.devices.get(&address) {
+            if let Some(endpoint) = device.get_endpoint(endpoint) {
+                for cluster in endpoint.get_in_clusters() {
+                    if let Cluster::GeneralOnOff(cluster) = cluster {
+                        return Ok(cluster.onoff)
+                    }
                 }
-                None
-            },
-            _ => None,
+            }
         }
+        Err(())
+    }
+
+    pub fn onoff(&mut self, address: u16, endpoint: u8, onoff: bool) {
+        let cmd = commands::action_onoff(address, 1, endpoint, onoff as u8);
+        self.send(&cmd);
+    }
+
+    pub fn get_level(&mut self, address: u16, endpoint: u8) -> Result<u8, ()> {
+        let cmd = commands::simple_read_attribut_request(address, endpoint, 8, 0);
+        self.remove_last_response(&MessageType::ReportIndividualAttributResponse);
+        self.send(&cmd);
+        self.wait_for_response(&MessageType::ReportIndividualAttributResponse);
+        let data = self.data.lock().unwrap();
+        if let Some(device) = data.devices.get(&address) {
+            if let Some(endpoint) = device.get_endpoint(endpoint) {
+                for cluster in endpoint.get_in_clusters() {
+                    if let Cluster::GeneralLevelControl(cluster) = cluster {
+                        return Ok(cluster.current_level)
+                    }
+                }
+            }
+        }
+        Err(())
+    }
+
+    pub fn move_to_level(&mut self, address: u16, endpoint: u8, on: bool, level: u8,
+                     transition_time: u16) {
+        let on = on as u8;
+        let cmd = commands::action_move_onoff(address, 1, endpoint, on, level, transition_time);
+        self.send(&cmd);
+    }
+
+    pub fn get_color_temp(&mut self, address: u16, endpoint: u8) -> Result<u16, ()> {
+        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 7);
+        self.remove_last_response(&MessageType::ReportIndividualAttributResponse);
+        self.send(&cmd);
+        self.wait_for_response(&MessageType::ReportIndividualAttributResponse);
+        let data = self.data.lock().unwrap();
+        if let Some(device) = data.devices.get(&address) {
+            if let Some(endpoint) = device.get_endpoint(endpoint) {
+                for cluster in endpoint.get_in_clusters() {
+                    if let Cluster::LightingColorControl(cluster) = cluster {
+                        return Ok(cluster.color_temperature)
+                    }
+                }
+            }
+        }
+        Err(())
+    }
+
+    pub fn move_to_color_temp(&mut self, address: u16, endpoint: u8, color_temp: u16,
+                              transition_time: u16) {
+        let cmd = commands::action_move_color_temp(address, 1, endpoint, color_temp,
+                                                   transition_time);
+        self.send(&cmd);
     }
 }
 
@@ -160,7 +217,7 @@ fn recv_fn(rx: Receiver<Command>, mut sender: UartSender, data: Arc<Mutex<Zigate
                 let data_cmd = cmd.clone();
                 data.last_resp.insert(msg_type, data_cmd);
                 let response = ResponseBox::from_command(&cmd);
-                println!("recv: {}", response.to_string());
+                info!("recv: {}", response.to_string());
                 match response {
                     ResponseBox::StatusBox(_) => {
                         let msg_type = MessageType::from_u16(cmd.msg_type);
@@ -189,8 +246,8 @@ fn recv_fn(rx: Receiver<Command>, mut sender: UartSender, data: Arc<Mutex<Zigate
                         if let Some(device) = data.devices.get_mut(&msg.address) {
                             device.add_endpoints(&msg.endpoint_list);
                             for endpoint in msg.endpoint_list {
-                                sender.send(&commands::simple_descriptor_request(msg.address,
-                                                                                 endpoint));
+                                sender.send(
+                                    &commands::simple_descriptor_request(msg.address, endpoint));
                                 data.exp_resp += 1;
                             }
                             data.exp_resp -= 1;
@@ -198,93 +255,24 @@ fn recv_fn(rx: Receiver<Command>, mut sender: UartSender, data: Arc<Mutex<Zigate
                     },
                     ResponseBox::SimpleDescriptorResponseBox(msg) => {
                         if let Some(device) = data.devices.get_mut(&msg.address) {
-                            for mut endpoint in device.endpoints.as_mut_slice() {
-                                endpoint.set_in_clusters(msg.in_cluster_list.clone());
-                                endpoint.set_out_clusters(msg.out_cluster_list.clone());
-                            }
+                            device.set_endpoints_clusters(&msg);
                             data.exp_resp -= 1;
+                        }
+                    },
+                    ResponseBox::ReadAttributeResponseBox(msg) => {
+                        if let Some(device) = data.devices.get_mut(&msg.src_addr) {
+                            device.update_cluster(&msg);
+                        }
+                    },
+                    ResponseBox::ReportIndividualAttributResponseBox(msg) => {
+                        if let Some(device) = data.devices.get_mut(&msg.src_addr) {
+                            device.update_cluster(&msg);
                         }
                     },
                     _ => {},
                 }
             },
-            Err(err) => println!("error: {}", err),
+            Err(err) => error!("error: {}", err),
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Device {
-    pub id: Option<u8>,
-    pub short_address: u16,
-    pub ieee_address: u64,
-    pub power_source: Option<bool>,
-    pub link_quality: Option<u8>,
-    pub endpoints: Vec<Endpoint>,
-}
-
-impl Device {
-    pub fn new(short_address: u16, ieee_address: u64) -> Self {
-        Self {
-            short_address,
-            ieee_address,
-            id: None,
-            power_source: None,
-            link_quality: None,
-            endpoints: Vec::new(),
-        }
-    }
-
-    pub fn from_devices_list_elem(device: RespDevice) -> Self {
-        Self {
-            short_address: device.short_address,
-            ieee_address: device.ieee_address,
-            id: Some(device.id),
-            power_source: Some(device.power_source),
-            link_quality: Some(device.link_quality),
-            endpoints: Vec::new(),
-        }
-    }
-
-    pub fn from_device_announce(msg: &responses::DeviceAnnounce) -> Self {
-        Self {
-            id: None,
-            short_address: msg.short_address,
-            ieee_address: msg.ieee_address,
-            power_source: None,
-            link_quality: None,
-            endpoints: Vec::new(),
-        }
-    }
-
-    pub fn add_endpoints(&mut self, endpoints: &Vec<u8>) {
-        for endpoint in endpoints {
-            self.endpoints.push(Endpoint::new(*endpoint));
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Endpoint {
-    pub id: u8,
-    in_clusters: Vec<u16>,
-    out_clusters: Vec<u16>,
-}
-
-impl Endpoint {
-    pub fn new(id: u8) -> Self {
-        Self {
-            id,
-            in_clusters: Vec::new(),
-            out_clusters: Vec::new(),
-        }
-    }
-
-    pub fn set_in_clusters(&mut self, clusters: Vec<u16>) {
-        self.in_clusters = clusters;
-    }
-
-    pub fn set_out_clusters(&mut self, clusters: Vec<u16>) {
-        self.out_clusters = clusters;
     }
 }
