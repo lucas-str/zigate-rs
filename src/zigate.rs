@@ -1,22 +1,19 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
-    sync::{
-        Arc, Mutex,
-        mpsc::Receiver,
-    },
+    sync::{mpsc::Receiver, Arc, Mutex},
     thread,
     time::Duration,
-    collections::HashMap,
 };
 
 use crate::{
-    serial::{UartSender, uart_recver},
+    cluster::Cluster,
     command::{Command, MessageType},
     commands,
+    device::Device,
     responses,
     responses::{Response, ResponseBox},
-    cluster::Cluster,
-    device::Device,
+    serial::{uart_recver, UartSender},
 };
 
 pub struct Zigate {
@@ -72,7 +69,7 @@ impl Zigate {
             {
                 let data = self.data.lock().unwrap();
                 if data.exp_resp == 0 {
-                    return
+                    return;
                 }
             }
             thread::sleep(Duration::from_millis(100));
@@ -87,7 +84,7 @@ impl Zigate {
             {
                 let mut data = self.data.lock().unwrap();
                 if let Some(cmd) = data.last_resp.remove(msg_type) {
-                    return Some(cmd)
+                    return Some(cmd);
                 }
             }
             thread::sleep(Duration::from_millis(100));
@@ -107,7 +104,7 @@ impl Zigate {
     pub fn get_version(&mut self) -> Result<String, ()> {
         {
             if let Some(version) = &self.version {
-                return Ok(version.clone())
+                return Ok(version.clone());
             }
         }
         self.remove_last_response(&MessageType::VersionList);
@@ -115,12 +112,13 @@ impl Zigate {
         match self.wait_for_response(&MessageType::VersionList) {
             Some(cmd) => {
                 if let Ok(version_list) = responses::VersionList::from_command(&cmd) {
-                    let version = String::from(format!("{}.{}", version_list.major, version_list.installer));
+                    let version =
+                        String::from(format!("{}.{}", version_list.major, version_list.installer));
                     self.version = Some(version.clone());
-                    return Ok(version)
+                    return Ok(version);
                 }
                 Err(())
-            },
+            }
             None => Err(()),
         }
     }
@@ -144,7 +142,7 @@ impl Zigate {
             if let Some(endpoint) = device.get_endpoint(endpoint) {
                 for cluster in endpoint.get_in_clusters() {
                     if let Cluster::GeneralOnOff(cluster) = cluster {
-                        return Ok(cluster.onoff)
+                        return Ok(cluster.onoff);
                     }
                 }
             }
@@ -167,7 +165,7 @@ impl Zigate {
             if let Some(endpoint) = device.get_endpoint(endpoint) {
                 for cluster in endpoint.get_in_clusters() {
                     if let Cluster::GeneralLevelControl(cluster) = cluster {
-                        return Ok(cluster.current_level)
+                        return Ok(cluster.current_level);
                     }
                 }
             }
@@ -175,8 +173,14 @@ impl Zigate {
         Err(())
     }
 
-    pub fn move_to_level(&mut self, address: u16, endpoint: u8, on: bool, level: u8,
-                     transition_time: u16) {
+    pub fn move_to_level(
+        &mut self,
+        address: u16,
+        endpoint: u8,
+        on: bool,
+        level: u8,
+        transition_time: u16,
+    ) {
         let on = on as u8;
         let cmd = commands::action_move_onoff(address, 1, endpoint, on, level, transition_time);
         self.send(&cmd);
@@ -192,7 +196,7 @@ impl Zigate {
             if let Some(endpoint) = device.get_endpoint(endpoint) {
                 for cluster in endpoint.get_in_clusters() {
                     if let Cluster::LightingColorControl(cluster) = cluster {
-                        return Ok(cluster.color_temperature)
+                        return Ok(cluster.color_temperature);
                     }
                 }
             }
@@ -200,10 +204,15 @@ impl Zigate {
         Err(())
     }
 
-    pub fn move_to_color_temp(&mut self, address: u16, endpoint: u8, color_temp: u16,
-                              transition_time: u16) {
-        let cmd = commands::action_move_color_temp(address, 1, endpoint, color_temp,
-                                                   transition_time);
+    pub fn move_to_color_temp(
+        &mut self,
+        address: u16,
+        endpoint: u8,
+        color_temp: u16,
+        transition_time: u16,
+    ) {
+        let cmd =
+            commands::action_move_color_temp(address, 1, endpoint, color_temp, transition_time);
         self.send(&cmd);
     }
 }
@@ -222,7 +231,7 @@ fn recv_fn(rx: Receiver<Command>, mut sender: UartSender, data: Arc<Mutex<Zigate
                     ResponseBox::StatusBox(_) => {
                         let msg_type = MessageType::from_u16(cmd.msg_type);
                         data.last_status.insert(msg_type, cmd.clone());
-                    },
+                    }
                     ResponseBox::DeviceAnnounceBox(msg) => {
                         if !data.devices.contains_key(&msg.short_address) {
                             let device = Device::from_device_announce(&msg);
@@ -230,48 +239,50 @@ fn recv_fn(rx: Receiver<Command>, mut sender: UartSender, data: Arc<Mutex<Zigate
                             sender.send(&commands::active_endpoint_request(msg.short_address));
                             data.exp_resp += 1;
                         }
-                    },
+                    }
                     ResponseBox::DevicesListBox(msg) => {
                         for device in msg.devices {
                             if !data.devices.contains_key(&device.short_address) {
                                 let device = Device::from_devices_list_elem(device);
-                                sender.send(
-                                    &commands::active_endpoint_request(device.short_address));
+                                sender
+                                    .send(&commands::active_endpoint_request(device.short_address));
                                 data.exp_resp += 1;
                                 data.devices.insert(device.short_address, device);
                             }
                         }
-                    },
+                    }
                     ResponseBox::ActiveEndpointsBox(msg) => {
                         if let Some(device) = data.devices.get_mut(&msg.address) {
                             device.add_endpoints(&msg.endpoint_list);
                             for endpoint in msg.endpoint_list {
-                                sender.send(
-                                    &commands::simple_descriptor_request(msg.address, endpoint));
+                                sender.send(&commands::simple_descriptor_request(
+                                    msg.address,
+                                    endpoint,
+                                ));
                                 data.exp_resp += 1;
                             }
                             data.exp_resp -= 1;
                         }
-                    },
+                    }
                     ResponseBox::SimpleDescriptorResponseBox(msg) => {
                         if let Some(device) = data.devices.get_mut(&msg.address) {
                             device.set_endpoints_clusters(&msg);
                             data.exp_resp -= 1;
                         }
-                    },
+                    }
                     ResponseBox::ReadAttributeResponseBox(msg) => {
                         if let Some(device) = data.devices.get_mut(&msg.src_addr) {
                             device.update_cluster(&msg);
                         }
-                    },
+                    }
                     ResponseBox::ReportIndividualAttributResponseBox(msg) => {
                         if let Some(device) = data.devices.get_mut(&msg.src_addr) {
                             device.update_cluster(&msg);
                         }
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 }
-            },
+            }
             Err(err) => error!("error: {}", err),
         }
     }
