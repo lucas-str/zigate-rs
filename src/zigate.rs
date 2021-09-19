@@ -101,6 +101,11 @@ impl Zigate {
         };
     }
 
+    pub fn permit_join(&mut self, interval: u8) -> Result<(), ()> {
+        self.send(&commands::permit_join_request(0xfffc, interval, 0));
+        Ok(())
+    }
+
     pub fn get_version(&mut self) -> Result<String, ()> {
         {
             if let Some(version) = &self.version {
