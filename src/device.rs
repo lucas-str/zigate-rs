@@ -96,8 +96,8 @@ impl Device {
 #[derive(Debug, Clone)]
 pub struct Endpoint {
     pub id: u8,
-    in_clusters: Vec<Cluster>,
-    out_clusters: Vec<Cluster>,
+    pub in_clusters: Vec<Cluster>,
+    pub out_clusters: Vec<Cluster>,
 }
 
 impl Endpoint {
