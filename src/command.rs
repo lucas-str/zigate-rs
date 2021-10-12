@@ -1,5 +1,5 @@
-use std::fmt;
 use bytebuffer::ByteBuffer;
+use std::fmt;
 
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -26,7 +26,12 @@ pub enum MessageType {
     ActionOnOffTimed = 0x0093,
     ActionOnOffEffect = 0x0094,
 
-    ActionMoveColorTemp = 0x00C0,
+    ActionMoveToHue = 0x00B0,
+    ActionMoveToSaturation = 0x00B3,
+    ActionMoveToHueAndSaturation = 0x00B6,
+    ActionMoveToColor = 0x00B7,
+
+    ActionMoveToColorTemp = 0x00C0,
 
     ReadAttributeRequest = 0x0100,
 
@@ -62,26 +67,27 @@ pub struct Command {
 }
 
 impl Command {
-
     pub fn new(msg_type: u16, data: Vec<u8>) -> Result<Command, &'static str> {
         if data.len() > 255 {
-            return Err("Data length must be < 255")
+            return Err("Data length must be < 255");
         }
-        Ok( Command { msg_type: msg_type, data: data } )
+        Ok(Command {
+            msg_type: msg_type,
+            data: data,
+        })
     }
 
-    pub fn from_raw(msg: & Vec<u8>) -> Result<Command, &'static str> {
-
+    pub fn from_raw(msg: &Vec<u8>) -> Result<Command, &'static str> {
         if msg.len() < 7 {
-            return Err("Raw message length must be greater than 7")
+            return Err("Raw message length must be greater than 7");
         }
         if msg[0] != 1 || msg[msg.len() - 1] != 3 {
-            return Err("Incomplete raw message")
+            return Err("Incomplete raw message");
         }
 
-        debug!("raw: {:?}", msg);
-        let msg = decode(&msg[1..msg.len()-1]);
-        debug!("decoded: {:?}", msg);
+        trace!("raw: {:?}", msg);
+        let msg = decode(&msg[1..msg.len() - 1]);
+        trace!("decoded: {:?}", msg);
 
         let mut buf = ByteBuffer::from_bytes(&msg);
 
@@ -93,17 +99,14 @@ impl Command {
         trace!("checksum: {}", checksum);
 
         if msg.len() - 5 != len.into() {
-            debug!("msg.len() {} len {}", msg.len(), len);
-            return Err("Wrong data length")
+            trace!("msg.len() {} len {}", msg.len(), len);
+            return Err("Wrong data length");
         }
 
-        let data = buf.read_bytes(len.into()).unwrap(); 
+        let data = buf.read_bytes(len.into()).unwrap();
         trace!("data: {:?}", data);
 
-        let cmd = Command {
-            msg_type,
-            data,
-        };
+        let cmd = Command { msg_type, data };
 
         if cmd.get_checksum() != checksum {
             warn!("Invalid checksum")
@@ -135,9 +138,9 @@ impl Command {
         buf.write_u8(self.get_checksum());
         buf.write_bytes(&self.data);
 
-        debug!("msg {:?}", buf.to_bytes());
+        trace!("msg {:?}", buf.to_bytes());
         let mut msg = transcode(&buf.to_bytes());
-        debug!("transcoded {:?}", msg);
+        trace!("transcoded {:?}", msg);
 
         msg.insert(0, 1);
         msg.push(3);
@@ -149,11 +152,15 @@ impl Command {
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg_type = MessageType::from_u16(self.msg_type);
-        write!(f, "{{{:?} ({:#X}), data: {:X?}}}", msg_type, self.msg_type, self.data)
+        write!(
+            f,
+            "{{{:?} ({:#X}), data: {:X?}}}",
+            msg_type, self.msg_type, self.data
+        )
     }
 }
 
-fn transcode(data: & Vec<u8>) -> Vec<u8> {
+fn transcode(data: &Vec<u8>) -> Vec<u8> {
     let mut msg = Vec::new();
 
     for byte in data {
@@ -161,7 +168,7 @@ fn transcode(data: & Vec<u8>) -> Vec<u8> {
             msg.push(*byte);
         } else {
             msg.push(2u8);
-            msg.push(*byte^0x10);
+            msg.push(*byte ^ 0x10);
         }
     }
 
@@ -178,7 +185,7 @@ fn decode(data: &[u8]) -> Vec<u8> {
             transcode = true;
         } else {
             if transcode {
-                msg.push(*byte^0x10);
+                msg.push(*byte ^ 0x10);
                 transcode = false;
             } else {
                 msg.push(*byte);

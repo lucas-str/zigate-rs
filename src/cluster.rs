@@ -1,6 +1,5 @@
-use crate::{
-    responses,
-};
+use crate::responses;
+use std::stringify;
 
 macro_rules! make_cluster {
     ( $($cluster_name:ident ($cluster:ident), $id:expr ),+ ) => {
@@ -23,6 +22,12 @@ macro_rules! make_cluster {
                     Self::Unk(id) => *id,
                 }
             }
+            pub fn name(&self) -> Option<String> {
+                match self {
+                    $( Self::$cluster_name(_) => Some(stringify!($cluster_name).into()), )+
+                    Self::Unk(_) => None,
+                }
+            }
             pub fn update(&mut self, msg: &responses::ReadAttributeResponse) {
                 match self {
                     $( Self::$cluster_name(cluster) => cluster.update(msg), )+
@@ -34,10 +39,13 @@ macro_rules! make_cluster {
 }
 
 make_cluster!(
-    GeneralOnOff(C0006), 0x0006,
-    GeneralLevelControl(C0008), 0x0008,
-    LightingColorControl(C0300), 0x0300
-    );
+    GeneralOnOff(C0006),
+    0x0006,
+    GeneralLevelControl(C0008),
+    0x0008,
+    LightingColorControl(C0300),
+    0x0300
+);
 
 trait ClusterTrait {
     fn new() -> Self;
@@ -56,7 +64,7 @@ impl ClusterTrait for C0006 {
     fn update(&mut self, msg: &responses::ReadAttributeResponse) {
         match msg.attr_enum {
             0 => self.onoff = msg.data[0] != 0,
-            _ => {},
+            _ => {}
         }
     }
 }
@@ -73,24 +81,91 @@ impl ClusterTrait for C0008 {
     fn update(&mut self, msg: &responses::ReadAttributeResponse) {
         match msg.attr_enum {
             0 => self.current_level = msg.data[0],
-            _ => {},
+            _ => {}
         }
     }
 }
 
 #[derive(Debug, Clone)]
+pub enum ColorMode {
+    HueSat,
+    XY,
+    Temp,
+}
+
+#[derive(Debug, Clone)]
+pub struct ColorCapabilities {
+    pub hue_sat: bool,
+    pub enhanced_hue: bool,
+    pub color_loop: bool,
+    pub xy: bool,
+    pub temp: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct C0300 {
-    pub color_temperature: u16,
+    pub current_hue: Option<u8>,
+    pub current_saturation: Option<u8>,
+    pub current_x: Option<u16>,
+    pub current_y: Option<u16>,
+    pub color_temperature: Option<u16>,
+    pub color_mode: Option<ColorMode>,
+    pub color_capabilities: Option<ColorCapabilities>,
 }
 
 impl ClusterTrait for C0300 {
     fn new() -> Self {
-        Self { color_temperature: 0 }
+        Self {
+            current_hue: None,
+            current_saturation: None,
+            current_x: None,
+            current_y: None,
+            color_temperature: None,
+            color_mode: None,
+            color_capabilities: None,
+        }
     }
     fn update(&mut self, msg: &responses::ReadAttributeResponse) {
         match msg.attr_enum {
-            7 => self.color_temperature = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff,
-            _ => {},
+            0x0000 => {
+                self.current_hue = Some(msg.data[0]);
+            }
+            0x0001 => {
+                self.current_saturation = Some(msg.data[0]);
+            }
+            0x0003 => {
+                let cur_x = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
+                self.current_x = Some(cur_x);
+            }
+            0x0004 => {
+                let cur_y = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
+                self.current_y = Some(cur_y);
+            }
+            0x0007 => {
+                let temp = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
+                self.color_temperature = Some(temp);
+            }
+            0x0008 => match msg.data[0] {
+                0 => self.color_mode = Some(ColorMode::HueSat),
+                1 => self.color_mode = Some(ColorMode::XY),
+                2 => self.color_mode = Some(ColorMode::Temp),
+                inv => {
+                    error!("Invalid color mode {}", inv);
+                    self.color_mode = None;
+                }
+            },
+            0x400a => {
+                let caps = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
+                let color_caps = ColorCapabilities {
+                    hue_sat: (caps & 0x0001) != 0,
+                    enhanced_hue: (caps & 0x0002) != 0,
+                    color_loop: (caps & 0x0003) != 0,
+                    xy: (caps & 0x0004) != 0,
+                    temp: (caps & 0x0005) != 0,
+                };
+                self.color_capabilities = Some(color_caps);
+            }
+            _ => {}
         }
     }
 }

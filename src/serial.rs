@@ -1,7 +1,7 @@
 use rppal::uart::{Parity, Uart};
-use std::sync::mpsc::{Sender, Receiver, channel};
-use std::thread;
 use std::path::Path;
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::thread;
 use std::time::Duration;
 
 use crate::command;
@@ -14,14 +14,12 @@ impl UartSender {
     pub fn new(path: &Path) -> Self {
         let mut uart = Uart::with_path(path, 115_200, Parity::None, 8, 1).unwrap();
         uart.set_write_mode(true).unwrap();
-        Self {
-            uart,
-        }
+        Self { uart }
     }
 
     pub fn send(&mut self, cmd: &command::Command) {
         let wl = self.uart.write(&cmd.serialize()).unwrap();
-        debug!("Sent {} bytes", wl);
+        trace!("Sent {} bytes", wl);
     }
 }
 
@@ -38,7 +36,7 @@ fn recv_commands(mut uart: Uart, tx: Sender<command::Command>) {
                 match command::Command::from_raw(&msg) {
                     Ok(cmd) => {
                         tx.send(cmd).unwrap();
-                    },
+                    }
                     Err(err) => println!("Error: {}\n{:?}", err, msg),
                 }
                 msg.clear();

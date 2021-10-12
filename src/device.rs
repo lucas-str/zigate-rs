@@ -1,7 +1,4 @@
-use crate::{
-    responses,
-    cluster::Cluster,
-};
+use crate::{cluster::Cluster, responses};
 
 #[derive(Debug, Clone)]
 pub struct Device {
@@ -55,6 +52,9 @@ impl Device {
 
     pub fn set_endpoints_clusters(&mut self, msg: &responses::SimpleDescriptorResponse) {
         for endpoint in self.endpoints.as_mut_slice() {
+            if endpoint.id != msg.endpoint {
+                continue;
+            }
             let mut in_clusters = Vec::new();
             let mut out_clusters = Vec::new();
             for id in &msg.in_cluster_list {
@@ -71,7 +71,7 @@ impl Device {
     pub fn get_endpoint(&self, id: u8) -> Option<&Endpoint> {
         for endpoint in &self.endpoints {
             if endpoint.id == id {
-                return Some(endpoint)
+                return Some(endpoint);
             }
         }
         None
@@ -80,7 +80,7 @@ impl Device {
     fn get_mut_endpoint(&mut self, id: u8) -> Option<&mut Endpoint> {
         for endpoint in &mut self.endpoints {
             if endpoint.id == id {
-                return Some(endpoint)
+                return Some(endpoint);
             }
         }
         None
@@ -124,7 +124,7 @@ impl Endpoint {
     fn get_mut_in_cluster(&mut self, id: u16) -> Option<&mut Cluster> {
         for cluster in &mut self.in_clusters {
             if cluster.id() == id {
-                return Some(cluster)
+                return Some(cluster);
             }
         }
         None

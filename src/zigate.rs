@@ -24,7 +24,6 @@ pub struct Zigate {
 }
 
 struct ZigateData {
-    pub version: Option<String>,
     pub last_resp: HashMap<MessageType, Command>,
     pub last_status: HashMap<MessageType, Command>,
     pub exp_resp: u16,
@@ -36,7 +35,6 @@ impl Zigate {
         let pathbuf = path.to_path_buf();
         let sender = UartSender::new(&path);
         let data = ZigateData {
-            version: None,
             last_resp: HashMap::new(),
             last_status: HashMap::new(),
             exp_resp: 0,
@@ -191,6 +189,126 @@ impl Zigate {
         self.send(&cmd);
     }
 
+    pub fn get_color_hue(&mut self, address: u16, endpoint: u8) -> Result<u8, ()> {
+        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 0);
+        self.remove_last_response(&MessageType::ReportIndividualAttributResponse);
+        self.send(&cmd);
+        self.wait_for_response(&MessageType::ReportIndividualAttributResponse);
+        let data = self.data.lock().unwrap();
+        if let Some(device) = data.devices.get(&address) {
+            if let Some(endpoint) = device.get_endpoint(endpoint) {
+                for cluster in endpoint.get_in_clusters() {
+                    if let Cluster::LightingColorControl(cluster) = cluster {
+                        if let Some(hue) = cluster.current_hue {
+                            return Ok(hue);
+                        }
+                    }
+                }
+            }
+        }
+        return Err(());
+    }
+
+    pub fn get_color_saturation(&mut self, address: u16, endpoint: u8) -> Result<u8, ()> {
+        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 1);
+        self.remove_last_response(&MessageType::ReportIndividualAttributResponse);
+        self.send(&cmd);
+        self.wait_for_response(&MessageType::ReportIndividualAttributResponse);
+        let data = self.data.lock().unwrap();
+        if let Some(device) = data.devices.get(&address) {
+            if let Some(endpoint) = device.get_endpoint(endpoint) {
+                for cluster in endpoint.get_in_clusters() {
+                    if let Cluster::LightingColorControl(cluster) = cluster {
+                        if let Some(sat) = cluster.current_saturation {
+                            return Ok(sat);
+                        }
+                    }
+                }
+            }
+        }
+        return Err(());
+    }
+
+    pub fn get_color(&mut self, address: u16, endpoint: u8) -> Result<(u16, u16), ()> {
+        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 3);
+        self.remove_last_response(&MessageType::ReportIndividualAttributResponse);
+        self.send(&cmd);
+        self.wait_for_response(&MessageType::ReportIndividualAttributResponse);
+        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 4);
+        self.remove_last_response(&MessageType::ReportIndividualAttributResponse);
+        self.send(&cmd);
+        self.wait_for_response(&MessageType::ReportIndividualAttributResponse);
+        let data = self.data.lock().unwrap();
+        if let Some(device) = data.devices.get(&address) {
+            if let Some(endpoint) = device.get_endpoint(endpoint) {
+                for cluster in endpoint.get_in_clusters() {
+                    if let Cluster::LightingColorControl(cluster) = cluster {
+                        if let (Some(x), Some(y)) = (cluster.current_x, cluster.current_y) {
+                            return Ok((x, y));
+                        }
+                    }
+                }
+            }
+        }
+        return Err(());
+    }
+
+    pub fn move_to_hue(
+        &mut self,
+        address: u16,
+        endpoint: u8,
+        hue: u8,
+        direction: u8,
+        transition_time: u16,
+    ) {
+        let cmd =
+            commands::action_move_to_hue(address, 1, endpoint, hue, direction, transition_time);
+        self.send(&cmd);
+    }
+
+    pub fn move_to_saturation(
+        &mut self,
+        address: u16,
+        endpoint: u8,
+        saturation: u8,
+        transition_time: u16,
+    ) {
+        let cmd =
+            commands::action_move_to_saturation(address, 1, endpoint, saturation, transition_time);
+        self.send(&cmd);
+    }
+
+    pub fn move_to_hue_and_saturation(
+        &mut self,
+        address: u16,
+        endpoint: u8,
+        hue: u8,
+        saturation: u8,
+        transition_time: u16,
+    ) {
+        let cmd = commands::action_move_to_hue_and_saturation(
+            address,
+            1,
+            endpoint,
+            hue,
+            saturation,
+            transition_time,
+        );
+        self.send(&cmd);
+    }
+
+    pub fn move_to_color(
+        &mut self,
+        address: u16,
+        endpoint: u8,
+        x: u16,
+        y: u16,
+        transition_time: u16,
+    ) {
+        let cmd = commands::action_move_to_color(address, 1, endpoint, x, y, transition_time);
+        self.send(&cmd);
+    }
+
     pub fn get_color_temp(&mut self, address: u16, endpoint: u8) -> Result<u16, ()> {
         let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 7);
         self.remove_last_response(&MessageType::ReportIndividualAttributResponse);
@@ -201,7 +319,9 @@ impl Zigate {
             if let Some(endpoint) = device.get_endpoint(endpoint) {
                 for cluster in endpoint.get_in_clusters() {
                     if let Cluster::LightingColorControl(cluster) = cluster {
-                        return Ok(cluster.color_temperature);
+                        if let Some(temp) = cluster.color_temperature {
+                            return Ok(temp);
+                        }
                     }
                 }
             }

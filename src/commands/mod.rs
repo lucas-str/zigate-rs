@@ -64,8 +64,14 @@ pub fn permit_join_request(addr: u16, interval: u8, tc_significance: u8) -> Comm
     Command::new(MessageType::PermitJoinRequest as u16, data).unwrap()
 }
 
-pub fn action_move(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8, mode: u8, rate: u8) ->
-                   Command {
+pub fn action_move(
+    addr: u16,
+    src_endpoint: u8,
+    dst_endpoint: u8,
+    cmd: u8,
+    mode: u8,
+    rate: u8,
+) -> Command {
     let mut data = vec![];
     data.push(2); // short address mode
     data.write_u16::<BigEndian>(addr).unwrap();
@@ -77,8 +83,14 @@ pub fn action_move(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8, mode:
     Command::new(MessageType::ActionMove as u16, data).unwrap()
 }
 
-pub fn action_move_onoff(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8, level: u8,
-                         transition_time: u16) -> Command {
+pub fn action_move_onoff(
+    addr: u16,
+    src_endpoint: u8,
+    dst_endpoint: u8,
+    cmd: u8,
+    level: u8,
+    transition_time: u16,
+) -> Command {
     let mut data = vec![];
     data.push(2); // short address mode
     data.write_u16::<BigEndian>(addr).unwrap();
@@ -100,8 +112,14 @@ pub fn action_onoff(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8) -> C
     Command::new(MessageType::ActionOnOff as u16, data).unwrap()
 }
 
-pub fn action_onoff_timed(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8, on_time: u16,
-                          off_time: u16) -> Command {
+pub fn action_onoff_timed(
+    addr: u16,
+    src_endpoint: u8,
+    dst_endpoint: u8,
+    cmd: u8,
+    on_time: u16,
+    off_time: u16,
+) -> Command {
     let mut data = vec![];
     data.push(2); // short address mode
     data.write_u16::<BigEndian>(addr).unwrap();
@@ -113,8 +131,14 @@ pub fn action_onoff_timed(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8
     Command::new(MessageType::ActionOnOffTimed as u16, data).unwrap()
 }
 
-pub fn action_onoff_effect(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u8, effect_id: u8,
-                           effect_gradient: u8) -> Command {
+pub fn action_onoff_effect(
+    addr: u16,
+    src_endpoint: u8,
+    dst_endpoint: u8,
+    cmd: u8,
+    effect_id: u8,
+    effect_gradient: u8,
+) -> Command {
     let mut data = vec![];
     data.push(2); // short address mode
     data.write_u16::<BigEndian>(addr).unwrap();
@@ -126,8 +150,87 @@ pub fn action_onoff_effect(addr: u16, src_endpoint: u8, dst_endpoint: u8, cmd: u
     Command::new(MessageType::ActionOnOffEffect as u16, data).unwrap()
 }
 
-pub fn action_move_color_temp(addr: u16, src_endpoint: u8, dst_endpoint: u8, color_temp: u16,
-                              transition_time: u16) -> Command {
+pub fn action_move_to_hue(
+    addr: u16,
+    src_endpoint: u8,
+    dst_endpoint: u8,
+    hue: u8,
+    direction: u8,
+    transition_time: u16,
+) -> Command {
+    let mut data = vec![];
+    data.push(2); // short address mode
+    data.write_u16::<BigEndian>(addr).unwrap();
+    data.push(src_endpoint);
+    data.push(dst_endpoint);
+    data.push(hue);
+    data.push(direction);
+    data.write_u16::<BigEndian>(transition_time).unwrap();
+    Command::new(MessageType::ActionMoveToHue as u16, data).unwrap()
+}
+
+pub fn action_move_to_saturation(
+    addr: u16,
+    src_endpoint: u8,
+    dst_endpoint: u8,
+    saturation: u8,
+    transition_time: u16,
+) -> Command {
+    let mut data = vec![];
+    data.push(2); // short address mode
+    data.write_u16::<BigEndian>(addr).unwrap();
+    data.push(src_endpoint);
+    data.push(dst_endpoint);
+    data.push(saturation);
+    data.write_u16::<BigEndian>(transition_time).unwrap();
+    Command::new(MessageType::ActionMoveToHue as u16, data).unwrap()
+}
+
+pub fn action_move_to_hue_and_saturation(
+    addr: u16,
+    src_endpoint: u8,
+    dst_endpoint: u8,
+    hue: u8,
+    saturation: u8,
+    transition_time: u16,
+) -> Command {
+    let mut data = vec![];
+    data.push(2); // short address mode
+    data.write_u16::<BigEndian>(addr).unwrap();
+    data.push(src_endpoint);
+    data.push(dst_endpoint);
+    data.push(hue);
+    data.push(saturation);
+    data.write_u16::<BigEndian>(transition_time).unwrap();
+    Command::new(MessageType::ActionMoveToHueAndSaturation as u16, data).unwrap()
+}
+
+pub fn action_move_to_color(
+    addr: u16,
+    src_endpoint: u8,
+    dst_endpoint: u8,
+    x: u16,
+    y: u16,
+    transition_time: u16,
+) -> Command {
+    let mut data = vec![];
+    data.push(2); // short address mode
+    data.write_u16::<BigEndian>(addr).unwrap();
+    data.push(src_endpoint);
+    data.push(dst_endpoint);
+    data.write_u16::<BigEndian>(x).unwrap();
+    data.write_u16::<BigEndian>(y).unwrap();
+    data.write_u16::<BigEndian>(transition_time).unwrap();
+    Command::new(MessageType::ActionMoveToColor as u16, data).unwrap()
+}
+
+pub fn action_move_color_temp(
+    addr: u16,
+    src_endpoint: u8,
+    dst_endpoint: u8,
+    color_temp: u16,
+    transition_time: u16,
+) -> Command {
     let mut data = vec![];
     data.push(2); // short address mode
     data.write_u16::<BigEndian>(addr).unwrap();
@@ -135,11 +238,18 @@ pub fn action_move_color_temp(addr: u16, src_endpoint: u8, dst_endpoint: u8, col
     data.push(dst_endpoint);
     data.write_u16::<BigEndian>(color_temp).unwrap();
     data.write_u16::<BigEndian>(transition_time).unwrap();
-    Command::new(MessageType::ActionMoveColorTemp as u16, data).unwrap()
+    Command::new(MessageType::ActionMoveToColorTemp as u16, data).unwrap()
 }
 
-pub fn read_attribut_request(addr: u16, src_endpoint: u8, dst_endpoint: u8, cluster_id: u16,
-                             direction: u8, manuf_id: u16, attr_list: Vec<u16>) -> Command {
+pub fn read_attribut_request(
+    addr: u16,
+    src_endpoint: u8,
+    dst_endpoint: u8,
+    cluster_id: u16,
+    direction: u8,
+    manuf_id: u16,
+    attr_list: Vec<u16>,
+) -> Command {
     let mut data = vec![];
     data.push(2); // short address mode
     data.write_u16::<BigEndian>(addr).unwrap();
@@ -161,6 +271,11 @@ pub fn read_attribut_request(addr: u16, src_endpoint: u8, dst_endpoint: u8, clus
     Command::new(MessageType::ReadAttributeRequest as u16, data).unwrap()
 }
 
-pub fn simple_read_attribut_request(addr: u16, endpoint: u8, cluster_id: u16, attr: u16) -> Command {
+pub fn simple_read_attribut_request(
+    addr: u16,
+    endpoint: u8,
+    cluster_id: u16,
+    attr: u16,
+) -> Command {
     read_attribut_request(addr, 1, endpoint, cluster_id, 0, 0, vec![attr])
 }
