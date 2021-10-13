@@ -93,7 +93,7 @@ pub enum ColorMode {
     Temp,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ColorCapabilities {
     pub hue_sat: bool,
     pub enhanced_hue: bool,
@@ -157,11 +157,11 @@ impl ClusterTrait for C0300 {
             0x400a => {
                 let caps = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
                 let color_caps = ColorCapabilities {
-                    hue_sat: (caps & 0x0001) != 0,
-                    enhanced_hue: (caps & 0x0002) != 0,
-                    color_loop: (caps & 0x0003) != 0,
-                    xy: (caps & 0x0004) != 0,
-                    temp: (caps & 0x0005) != 0,
+                    hue_sat: (caps & 0x1) != 0,
+                    enhanced_hue: (caps & 0x2) != 0,
+                    color_loop: (caps & 0x4) != 0,
+                    xy: (caps & 0x8) != 0,
+                    temp: (caps & 0x10) != 0,
                 };
                 self.color_capabilities = Some(color_caps);
             }

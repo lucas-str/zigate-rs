@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    cluster::Cluster,
+    cluster::{Cluster, ColorCapabilities},
     command::{Command, MessageType},
     commands,
     device::Device,
@@ -194,8 +194,20 @@ impl Zigate {
         address: u16,
         endpoint: u8,
     ) -> Result<ColorCapabilities, ()> {
-        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 0);
+        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 0x400a);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
+        let data = self.data.lock().unwrap();
+        if let Some(device) = data.devices.get(&address) {
+            if let Some(endpoint) = device.get_endpoint(endpoint) {
+                for cluster in endpoint.get_in_clusters() {
+                    if let Cluster::LightingColorControl(cluster) = cluster {
+                        if let Some(color_caps) = cluster.color_capabilities {
+                            return Ok(color_caps);
+                        }
+                    }
+                }
+            }
+        }
         Err(())
     }
 
