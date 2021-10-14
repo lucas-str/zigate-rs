@@ -211,6 +211,42 @@ impl Zigate {
         Err(())
     }
 
+    pub fn get_color_temp_min(&mut self, address: u16, endpoint: u8) -> Result<u16, ()> {
+        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 0x400b);
+        self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
+        let data = self.data.lock().unwrap();
+        if let Some(device) = data.devices.get(&address) {
+            if let Some(endpoint) = device.get_endpoint(endpoint) {
+                for cluster in endpoint.get_in_clusters() {
+                    if let Cluster::LightingColorControl(cluster) = cluster {
+                        if let Some(temp_min) = cluster.color_temp_min {
+                            return Ok(temp_min);
+                        }
+                    }
+                }
+            }
+        }
+        Err(())
+    }
+
+    pub fn get_color_temp_max(&mut self, address: u16, endpoint: u8) -> Result<u16, ()> {
+        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 0x400c);
+        self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
+        let data = self.data.lock().unwrap();
+        if let Some(device) = data.devices.get(&address) {
+            if let Some(endpoint) = device.get_endpoint(endpoint) {
+                for cluster in endpoint.get_in_clusters() {
+                    if let Cluster::LightingColorControl(cluster) = cluster {
+                        if let Some(temp_max) = cluster.color_temp_max {
+                            return Ok(temp_max);
+                        }
+                    }
+                }
+            }
+        }
+        Err(())
+    }
+
     pub fn get_color_hue(&mut self, address: u16, endpoint: u8) -> Result<u8, ()> {
         let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 0);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);

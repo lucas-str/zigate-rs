@@ -111,6 +111,8 @@ pub struct C0300 {
     pub color_temperature: Option<u16>,
     pub color_mode: Option<ColorMode>,
     pub color_capabilities: Option<ColorCapabilities>,
+    pub color_temp_min: Option<u16>,
+    pub color_temp_max: Option<u16>,
 }
 
 impl ClusterTrait for C0300 {
@@ -123,6 +125,8 @@ impl ClusterTrait for C0300 {
             color_temperature: None,
             color_mode: None,
             color_capabilities: None,
+            color_temp_min: None,
+            color_temp_max: None,
         }
     }
     fn update(&mut self, msg: &responses::ReadAttributeResponse) {
@@ -164,6 +168,14 @@ impl ClusterTrait for C0300 {
                     temp: (caps & 0x10) != 0,
                 };
                 self.color_capabilities = Some(color_caps);
+            }
+            0x400b => {
+                let temp_min = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
+                self.color_temp_min = Some(temp_min);
+            }
+            0x400c => {
+                let temp_max = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
+                self.color_temp_max = Some(temp_max);
             }
             _ => {}
         }
