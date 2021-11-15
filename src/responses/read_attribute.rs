@@ -1,7 +1,8 @@
 use bytebuffer::ByteBuffer;
+use std::str;
 
-use crate::responses::Response;
 use crate::command::Command;
+use crate::responses::Response;
 
 pub struct ReadAttributeResponse {
     pub seq_num: u8,
@@ -47,5 +48,36 @@ impl Response for ReadAttributeResponse {
             format!("Read Attribute Response : addr {:X}, endpoint {}, cluster {}, enum {}, status {}, attr enum {}, data type {},  data {:?}",
                     self.src_addr, self.endpoint, self.cluster_id, self.attr_enum,
                     self.attr_status, self.attr_enum, self.attr_data_type, self.data))
+    }
+}
+
+impl ReadAttributeResponse {
+    pub fn data_as_u8(&self) -> Result<u8, ()> {
+        if self.data.len() < 1 {
+            error!("Failed to read attribute as u8: not enough data.");
+            return Err(());
+        }
+        Ok(self.data[0])
+    }
+    pub fn data_as_u16(&self) -> Result<u16, ()> {
+        if self.data.len() < 2 {
+            error!("Failed to read attribute as u16: not enough data.");
+            return Err(());
+        }
+        Ok((self.data[0] as u16) << 8 | (self.data[1] as u16) & 0xff)
+    }
+    pub fn data_as_bool(&self) -> Result<bool, ()> {
+        if self.data.len() < 1 {
+            error!("Failed to read attribute as bool: not enough data.");
+            return Err(());
+        }
+        Ok(self.data[0] != 0)
+    }
+    pub fn data_as_str(&self) -> Result<&str, str::Utf8Error> {
+        let res = str::from_utf8(&self.data);
+        if let Err(e) = res {
+            error!("Invalid UTF-8: {}", e);
+        }
+        res
     }
 }
