@@ -1,6 +1,9 @@
 use crate::responses;
 use std::stringify;
 
+mod basic;
+use basic::C0000;
+
 macro_rules! make_cluster {
     ( $($cluster_name:ident ($cluster:ident), $id:expr ),+ ) => {
         #[derive(Debug, Clone)]
@@ -39,6 +42,8 @@ macro_rules! make_cluster {
 }
 
 make_cluster!(
+    Basic(C0000),
+    0x0000,
     GeneralOnOff(C0006),
     0x0006,
     GeneralLevelControl(C0008),
@@ -63,7 +68,7 @@ impl ClusterTrait for C0006 {
     }
     fn update(&mut self, msg: &responses::ReadAttributeResponse) {
         match msg.attr_enum {
-            0 => self.onoff = msg.data[0] != 0,
+            0 => self.onoff = msg.data_as_bool().unwrap_or(false),
             _ => {}
         }
     }
@@ -80,7 +85,7 @@ impl ClusterTrait for C0008 {
     }
     fn update(&mut self, msg: &responses::ReadAttributeResponse) {
         match msg.attr_enum {
-            0 => self.current_level = msg.data[0],
+            0 => self.current_level = msg.data_as_u8().unwrap_or(0),
             _ => {}
         }
     }
@@ -102,7 +107,7 @@ pub struct ColorCapabilities {
     pub temp: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct C0300 {
     pub current_hue: Option<u8>,
     pub current_saturation: Option<u8>,
@@ -117,49 +122,42 @@ pub struct C0300 {
 
 impl ClusterTrait for C0300 {
     fn new() -> Self {
-        Self {
-            current_hue: None,
-            current_saturation: None,
-            current_x: None,
-            current_y: None,
-            color_temperature: None,
-            color_mode: None,
-            color_capabilities: None,
-            color_temp_min: None,
-            color_temp_max: None,
-        }
+        Self::default()
     }
     fn update(&mut self, msg: &responses::ReadAttributeResponse) {
         match msg.attr_enum {
             0x0000 => {
-                self.current_hue = Some(msg.data[0]);
+                self.current_hue = msg.data_as_u8().ok();
             }
             0x0001 => {
-                self.current_saturation = Some(msg.data[0]);
+                self.current_saturation = msg.data_as_u8().ok();
             }
             0x0003 => {
-                let cur_x = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
-                self.current_x = Some(cur_x);
+                self.current_x = msg.data_as_u16().ok();
             }
             0x0004 => {
-                let cur_y = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
-                self.current_y = Some(cur_y);
+                self.current_y = msg.data_as_u16().ok();
             }
             0x0007 => {
-                let temp = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
-                self.color_temperature = Some(temp);
+                self.color_temperature = msg.data_as_u16().ok();
             }
-            0x0008 => match msg.data[0] {
-                0 => self.color_mode = Some(ColorMode::HueSat),
-                1 => self.color_mode = Some(ColorMode::XY),
-                2 => self.color_mode = Some(ColorMode::Temp),
-                inv => {
-                    error!("Invalid color mode {}", inv);
+            0x0008 => match msg.data_as_u8() {
+                Ok(0) => self.color_mode = Some(ColorMode::HueSat),
+                Ok(1) => self.color_mode = Some(ColorMode::XY),
+                Ok(2) => self.color_mode = Some(ColorMode::Temp),
+                Ok(n) => {
+                    error!("Invalid color mode {}", n);
+                    self.color_mode = None;
+                }
+                _ => {
                     self.color_mode = None;
                 }
             },
             0x400a => {
-                let caps = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
+                let caps = match msg.data_as_u16() {
+                    Ok(caps) => caps,
+                    Err(_) => return,
+                };
                 let color_caps = ColorCapabilities {
                     hue_sat: (caps & 0x1) != 0,
                     enhanced_hue: (caps & 0x2) != 0,
@@ -170,12 +168,10 @@ impl ClusterTrait for C0300 {
                 self.color_capabilities = Some(color_caps);
             }
             0x400b => {
-                let temp_min = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
-                self.color_temp_min = Some(temp_min);
+                self.color_temp_min = msg.data_as_u16().ok();
             }
             0x400c => {
-                let temp_max = (msg.data[0] as u16) << 8 | (msg.data[1] as u16) & 0xff;
-                self.color_temp_max = Some(temp_max);
+                self.color_temp_max = msg.data_as_u16().ok();
             }
             _ => {}
         }
