@@ -241,7 +241,7 @@ pub fn action_move_color_temp(
     Command::new(MessageType::ActionMoveToColorTemp as u16, data).unwrap()
 }
 
-pub fn read_attribut_request(
+pub fn read_attribute_request(
     addr: u16,
     src_endpoint: u8,
     dst_endpoint: u8,
@@ -271,11 +271,20 @@ pub fn read_attribut_request(
     Command::new(MessageType::ReadAttributeRequest as u16, data).unwrap()
 }
 
-pub fn simple_read_attribut_request(
+pub fn simple_read_attribute_request(
     addr: u16,
     endpoint: u8,
     cluster_id: u16,
     attr: u16,
 ) -> Command {
-    read_attribut_request(addr, 1, endpoint, cluster_id, 0, 0, vec![attr])
+    read_attribute_request(addr, 1, endpoint, cluster_id, 0, 0, vec![attr])
+}
+
+pub fn simple_read_attribute_request_vec(
+    addr: u16,
+    endpoint: u8,
+    cluster_id: u16,
+    attr: Vec<u16>,
+) -> Command {
+    read_attribute_request(addr, 1, endpoint, cluster_id, 0, 0, attr)
 }

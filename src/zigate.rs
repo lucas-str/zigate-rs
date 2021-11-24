@@ -59,6 +59,7 @@ impl Zigate {
     }
 
     pub fn send(&mut self, cmd: &Command) {
+        debug!("send: {}", cmd);
         self.sender.send(cmd);
     }
 
@@ -140,7 +141,7 @@ impl Zigate {
     }
 
     pub fn get_onoff(&mut self, address: u16, endpoint: u8) -> Result<bool, ()> {
-        let cmd = commands::simple_read_attribut_request(address, endpoint, 6, 0);
+        let cmd = commands::simple_read_attribute_request(address, endpoint, 6, 0);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
         let data = self.data.lock().unwrap();
         if let Some(device) = data.devices.get(&address) {
@@ -161,7 +162,7 @@ impl Zigate {
     }
 
     pub fn get_level(&mut self, address: u16, endpoint: u8) -> Result<u8, ()> {
-        let cmd = commands::simple_read_attribut_request(address, endpoint, 8, 0);
+        let cmd = commands::simple_read_attribute_request(address, endpoint, 8, 0);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
         let data = self.data.lock().unwrap();
         if let Some(device) = data.devices.get(&address) {
@@ -194,7 +195,7 @@ impl Zigate {
         address: u16,
         endpoint: u8,
     ) -> Result<ColorCapabilities, ()> {
-        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 0x400a);
+        let cmd = commands::simple_read_attribute_request(address, endpoint, 0x0300, 0x400a);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
         let data = self.data.lock().unwrap();
         if let Some(device) = data.devices.get(&address) {
@@ -212,7 +213,7 @@ impl Zigate {
     }
 
     pub fn get_color_temp_min(&mut self, address: u16, endpoint: u8) -> Result<u16, ()> {
-        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 0x400b);
+        let cmd = commands::simple_read_attribute_request(address, endpoint, 0x0300, 0x400b);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
         let data = self.data.lock().unwrap();
         if let Some(device) = data.devices.get(&address) {
@@ -230,7 +231,7 @@ impl Zigate {
     }
 
     pub fn get_color_temp_max(&mut self, address: u16, endpoint: u8) -> Result<u16, ()> {
-        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 0x400c);
+        let cmd = commands::simple_read_attribute_request(address, endpoint, 0x0300, 0x400c);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
         let data = self.data.lock().unwrap();
         if let Some(device) = data.devices.get(&address) {
@@ -248,7 +249,7 @@ impl Zigate {
     }
 
     pub fn get_color_hue(&mut self, address: u16, endpoint: u8) -> Result<u8, ()> {
-        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 0);
+        let cmd = commands::simple_read_attribute_request(address, endpoint, 0x0300, 0);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
         let data = self.data.lock().unwrap();
         if let Some(device) = data.devices.get(&address) {
@@ -266,7 +267,7 @@ impl Zigate {
     }
 
     pub fn get_color_saturation(&mut self, address: u16, endpoint: u8) -> Result<u8, ()> {
-        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 1);
+        let cmd = commands::simple_read_attribute_request(address, endpoint, 0x0300, 1);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
         let data = self.data.lock().unwrap();
         if let Some(device) = data.devices.get(&address) {
@@ -284,9 +285,9 @@ impl Zigate {
     }
 
     pub fn get_color(&mut self, address: u16, endpoint: u8) -> Result<(u16, u16), ()> {
-        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 3);
+        let cmd = commands::simple_read_attribute_request(address, endpoint, 0x0300, 3);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
-        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 4);
+        let cmd = commands::simple_read_attribute_request(address, endpoint, 0x0300, 4);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
         let data = self.data.lock().unwrap();
         if let Some(device) = data.devices.get(&address) {
@@ -360,7 +361,7 @@ impl Zigate {
     }
 
     pub fn get_color_temp(&mut self, address: u16, endpoint: u8) -> Result<u16, ()> {
-        let cmd = commands::simple_read_attribut_request(address, endpoint, 0x0300, 7);
+        let cmd = commands::simple_read_attribute_request(address, endpoint, 0x0300, 7);
         self.send_and_wait(&cmd, &MessageType::ReportIndividualAttributResponse);
         let data = self.data.lock().unwrap();
         if let Some(device) = data.devices.get(&address) {
@@ -399,7 +400,7 @@ fn recv_fn(rx: Receiver<Command>, mut sender: UartSender, data: Arc<Mutex<Zigate
                 let data_cmd = cmd.clone();
                 data.last_resp.insert(msg_type, data_cmd);
                 let response = ResponseBox::from_command(&cmd);
-                info!("recv: {}", response.to_string());
+                debug!("recv: {}", response.to_string());
                 match response {
                     ResponseBox::StatusBox(_) => {
                         let msg_type = MessageType::from_u16(cmd.msg_type);
